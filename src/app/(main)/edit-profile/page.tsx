@@ -54,7 +54,19 @@ export default function EditProfilePage() {
         const response = await fetch(`/api/users/${(session as any)?.user?.username}`);
         if (response.ok) {
           const data = await response.json();
-          setProfileData(data.user);
+
+          // Normalize nullable fields to empty strings to avoid runtime errors
+          const user = data.user ?? {};
+          setProfileData({
+            id: user.id ?? '',
+            username: user.username ?? '',
+            display_name: user.display_name ?? '',
+            bio: user.bio ?? '',
+            location: user.location ?? '',
+            website: user.website ?? '',
+            avatar_url: user.avatar_url ?? '',
+            banner_url: user.banner_url ?? '',
+          });
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
