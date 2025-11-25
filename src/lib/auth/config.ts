@@ -49,9 +49,13 @@ export const authOptions: NextAuthOptions = {
 
           if (!existingUser) {
             // FIRST TIME LOGIN: Create new user record with OAuth profile data
+            // Generate a unique temporary username to avoid duplicate key errors
+            // Users will set their real username during onboarding
+            const tempUsername = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            
             const payload: TablesInsert<'users'> = {
               email: user.email!,
-              username: '', // Will be set during onboarding
+              username: tempUsername, // Temporary unique username, set properly during onboarding
               display_name: user.name || '',
               avatar_url: avatarUrl, // Aggressively capture OAuth profile picture
               onboarding_completed: false,
