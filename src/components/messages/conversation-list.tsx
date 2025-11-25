@@ -1,22 +1,29 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PencilLine, Search, ShieldCheck, MessageCircle } from 'lucide-react';
+import { NewMessageModal } from './new-message-modal';
 
-interface ConversationSummary {
+interface Chat {
   id: string;
-  name: string;
-  handle: string;
-  preview: string;
-  unread: number;
-  isVerified: boolean;
-  timestamp: string;
+  type: 'direct';
+  other_user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_verified: boolean;
+  };
+  unread_count: number;
+  updated_at: string;
 }
 
 interface ConversationListProps {
-  conversations: ConversationSummary[];
-  onSelectConversation: (conversationId: string) => void;
-  activeConversationId?: string;
+  chats: Chat[];
+  selectedId: string | null;
+  onSelect: (chatId: string) => void;
+  onStartNewChat: (userId: string) => void;
 }
 
 const safetyTips = [
@@ -25,7 +32,23 @@ const safetyTips = [
   'Report harassment directly from the conversation.',
 ];
 
-export function ConversationList({ conversations, onSelectConversation, activeConversationId }: ConversationListProps) {
+export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }: ConversationListProps) {
+  const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      return diffInMinutes < 1 ? 'now' : `${diffInMinutes}m`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays}d`;
+    }
+  };
   return (
     <div className="flex h-full w-full flex-col rounded-3xl border border-slate-800/70 bg-gradient-to-b from-slate-950/90 to-slate-900/70 p-4 backdrop-blur lg:p-6">
       {/* Header */}
@@ -34,7 +57,11 @@ export function ConversationList({ conversations, onSelectConversation, activeCo
           <p className="text-xs uppercase tracking-widest text-slate-500">Inbox</p>
           <h1 className="text-xl font-bold text-white lg:text-2xl">Messages</h1>
         </div>
-        <Button size="icon" className="h-10 w-10 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 lg:h-12 lg:w-12">
+        <Button 
+          size="icon" 
+          onClick={() => setIsNewMessageModalOpen(true)}
+          className="h-10 w-10 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 lg:h-12 lg:w-12"
+        >
           <PencilLine className="h-4 w-4 lg:h-5 lg:w-5" />
         </Button>
       </div>
@@ -51,35 +78,58 @@ export function ConversationList({ conversations, onSelectConversation, activeCo
 
       {/* Conversations */}
       <div className="mt-6 flex-1 overflow-hidden">
-        <div className="flex h-full flex-col gap-3 overflow-y-auto pr-2">
-          {conversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              onClick={() => onSelectConversation(conversation.id)}
-              className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition-all duration-200 ${
-                conversation.id === activeConversationId
-                  ? 'border-blue-500/80 bg-blue-500/10 shadow-lg shadow-blue-500/20'
-                  : 'border-slate-800/70 bg-slate-900/60 hover:border-blue-500/50 hover:bg-slate-900/80'
-              }`}
-            >
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-base font-semibold text-white truncate">{conversation.name}</p>
-                  {conversation.isVerified && <ShieldCheck className="h-4 w-4 text-blue-400 flex-shrink-0" />}
-                  <span className="ml-auto text-sm text-slate-500 flex-shrink-0">{conversation.timestamp}</span>
+        {chats.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center space-y-4 text-center">
+            <MessageCircle className="h-12 w-12 text-slate-600" />
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-slate-300">No conversations yet</h3>
+              <p className="text-sm text-slate-500">Start a conversation by sending a message to someone.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {chats.map((chat) => (
+              <div
+                key={chat.id}
+                onClick={() => onSelect(chat.id)}
+                className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-slate-800/50 ${
+                  selectedId === chat.id ? 'bg-slate-800/70' : ''
+                }`}
+              >
+                <div className="relative">
+                  {chat.other_user.avatar_url ? (
+                    <img
+                      src={chat.other_user.avatar_url}
+                      alt={chat.other_user.display_name}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                      {chat.other_user.display_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {chat.other_user.is_verified && (
+                    <ShieldCheck className="absolute -bottom-1 -right-1 h-4 w-4 text-blue-400" />
+                  )}
                 </div>
-                <p className="text-sm text-slate-400 mt-1">@{conversation.handle}</p>
-                <p className="text-sm text-slate-300 mt-2 line-clamp-2">{conversation.preview}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-200 truncate">{chat.other_user.display_name}</h3>
+                    <span className="text-xs text-slate-500">{formatTimestamp(chat.updated_at)}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-sm text-slate-400 truncate">@{chat.other_user.username}</p>
+                    {chat.unread_count > 0 && (
+                      <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                        {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              {conversation.unread > 0 && (
-                <span className="rounded-full bg-blue-500/90 px-3 py-1 text-sm font-semibold text-white shadow-lg flex-shrink-0">
-                  {conversation.unread}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Safety Tips */}
@@ -97,6 +147,13 @@ export function ConversationList({ conversations, onSelectConversation, activeCo
           ))}
         </ul>
       </div>
+
+      {/* New Message Modal */}
+      <NewMessageModal
+        isOpen={isNewMessageModalOpen}
+        onClose={() => setIsNewMessageModalOpen(false)}
+        onStartChat={onStartNewChat}
+      />
     </div>
   );
 }

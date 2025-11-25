@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { createClient } from '@/lib/supabase/server';
+import { adminClient } from '@/lib/supabase/admin';
 
 // POST - Like a post
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
     // Increment likes count on post
     const { data: post } = await supabase
       .from('posts')
-      .select('likes_count')
+      .select('likes_count, user_id')
       .eq('id', postId)
       .single();
 
@@ -62,6 +63,35 @@ export async function POST(
         .from('posts')
         .update({ likes_count: post.likes_count + 1 })
         .eq('id', postId);
+
+      // Create like notification (only if not liking own post)
+      if (post.user_id !== session.user.id) {
+        const { data: likerData } = await supabase
+          .from('users')
+          .select('display_name, username')
+          .eq('id', session.user.id)
+          .single();
+
+        if (likerData) {
+          const { error: notificationError } = await adminClient
+            .from('notifications')
+            .insert({
+              user_id: post.user_id,
+              actor_id: session.user.id,
+              type: 'like',
+              content: `${likerData.display_name} (@${likerData.username}) liked your post`,
+              post_id: postId,
+              is_read: false,
+              created_at: new Date().toISOString()
+            });
+
+          if (notificationError) {
+            console.error('Error creating like notification:', notificationError);
+          } else {
+            console.log('Like notification created successfully for user:', post.user_id);
+          }
+        }
+      }
     }
 
     return NextResponse.json({ liked: true });

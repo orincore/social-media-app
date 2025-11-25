@@ -15,37 +15,58 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-interface ConversationSummary {
+interface Chat {
   id: string;
-  name: string;
-  handle: string;
-  preview: string;
-  unread: number;
-  isVerified: boolean;
-  timestamp: string;
+  type: 'direct';
+  other_user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_verified: boolean;
+  };
+  unread_count: number;
+  updated_at: string;
 }
 
-interface MessageItem {
+interface Message {
   id: string;
-  from: 'me' | 'them';
+  chat_id: string;
+  sender_id: string;
   content: string;
-  time: string;
+  is_read: boolean;
+  created_at: string;
+  sender: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_verified: boolean;
+  };
 }
 
 interface ChatWindowProps {
-  conversation: ConversationSummary;
-  messages: MessageItem[];
-  onBack: () => void;
+  chat: Chat;
+  messages: Message[];
+  currentUserId: string;
   onSendMessage: (message: string) => void;
+  onBack: () => void;
 }
 
-export function ChatWindow({ conversation, messages, onBack, onSendMessage }: ChatWindowProps) {
+export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBack }: ChatWindowProps) {
   const [draft, setDraft] = useState('');
 
   const handleSend = () => {
     if (!draft.trim()) return;
     onSendMessage(draft);
     setDraft('');
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -58,7 +79,7 @@ export function ChatWindow({ conversation, messages, onBack, onSendMessage }: Ch
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-950 lg:relative lg:inset-auto lg:h-full lg:rounded-3xl lg:border lg:border-slate-800/70 lg:bg-slate-950/60 lg:backdrop-blur">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-slate-800/70 bg-slate-950/95 px-4 py-3 backdrop-blur-xl lg:px-6 lg:py-4">
+      <div className="flex items-center justify-between border-b border-slate-800/70 p-4 lg:p-6">
         <Button
           variant="ghost"
           size="icon"
@@ -68,14 +89,26 @@ export function ChatWindow({ conversation, messages, onBack, onSendMessage }: Ch
           <ArrowLeft className="h-4 w-4 lg:h-5 lg:w-5" />
         </Button>
         
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg lg:h-12 lg:w-12" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-white lg:text-lg">{conversation.name}</h2>
-              {conversation.isVerified && <ShieldCheck className="h-4 w-4 flex-shrink-0 text-blue-400" />}
-            </div>
-            <p className="truncate text-sm text-slate-400">@{conversation.handle}</p>
+        <div className="flex items-center space-x-3 flex-1 ml-4">
+          <div className="relative">
+            {chat.other_user.avatar_url ? (
+              <img
+                src={chat.other_user.avatar_url}
+                alt={chat.other_user.display_name}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                {chat.other_user.display_name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            {chat.other_user.is_verified && (
+              <ShieldCheck className="absolute -bottom-1 -right-1 h-3 w-3 text-blue-400" />
+            )}
+          </div>
+          <div>
+            <h2 className="font-semibold text-white">{chat.other_user.display_name}</h2>
+            <p className="text-sm text-slate-400">@{chat.other_user.username}</p>
           </div>
         </div>
 
@@ -93,38 +126,42 @@ export function ChatWindow({ conversation, messages, onBack, onSendMessage }: Ch
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-6">
-        <div className="space-y-3 lg:space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex h-full min-h-[40vh] flex-col items-center justify-center gap-4 text-center text-slate-400">
-              <MessageCircle className="h-12 w-12 text-slate-600 lg:h-16 lg:w-16" />
-              <div>
-                <h3 className="text-lg font-semibold text-white lg:text-xl">Start the conversation</h3>
-                <p className="mt-2 text-sm text-slate-400">Send a message to begin your chat with {conversation.name}.</p>
-              </div>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <div key={message.id} className={`flex ${message.from === 'me' ? 'justify-end' : 'justify-start'}`}>
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-4 p-4">
+          {messages.map((message) => {
+            const isFromMe = message.sender_id === currentUserId;
+            return (
+              <div
+                key={message.id}
+                className={`flex ${
+                  isFromMe ? 'justify-end' : 'justify-start'
+                }`}
+              >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-lg lg:max-w-[75%] lg:px-4 lg:py-3 ${
-                    message.from === 'me'
+                  className={`max-w-xs rounded-2xl px-4 py-2 ${
+                    isFromMe
                       ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                      : 'border border-slate-800/70 bg-slate-900/70 text-slate-100'
+                      : 'bg-slate-800 text-slate-200'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                  <span className="mt-1 block text-xs opacity-70 lg:mt-2">{message.time}</span>
+                  <p className="text-sm">{message.content}</p>
+                  <p
+                    className={`mt-1 text-xs ${
+                      isFromMe ? 'text-blue-100' : 'text-slate-400'
+                    }`}
+                  >
+                    {formatTime(message.created_at)}
+                  </p>
                 </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
       </div>
 
-      {/* Composer - Fixed at bottom */}
-      <div className="border-t border-slate-800/70 bg-slate-950/95 px-4 py-2 backdrop-blur-xl lg:px-6 lg:py-3">
-        <div className="flex flex-col gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-2.5 lg:p-3">
+      {/* Input */}
+      <div className="border-t border-slate-800/70 p-4">
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-3">
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -134,7 +171,7 @@ export function ChatWindow({ conversation, messages, onBack, onSendMessage }: Ch
             maxLength={1000}
             rows={2}
           />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-1 text-slate-400 lg:gap-2">
               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-slate-800 lg:h-8 lg:w-8">
                 <ImageIcon className="h-4 w-4" />

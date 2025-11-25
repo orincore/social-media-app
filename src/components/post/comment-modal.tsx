@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useNotifications } from '@/hooks/use-notifications';
 import { X, Loader2, Heart, MessageCircle, Send } from 'lucide-react';
 
 interface User {
@@ -45,6 +46,7 @@ interface CommentModalProps {
 
 export function CommentModal({ post, isOpen, onClose, onCommentAdded }: CommentModalProps) {
   const { data: session } = useSession();
+  const { refreshNotifications } = useNotifications();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -128,6 +130,9 @@ export function CommentModal({ post, isOpen, onClose, onCommentAdded }: CommentM
       // Add new comment to the top of the list
       setComments(prev => [data.comment, ...prev]);
       setNewComment('');
+      
+      // Refresh notifications to update count immediately
+      setTimeout(refreshNotifications, 500);
       
       if (onCommentAdded) {
         onCommentAdded();

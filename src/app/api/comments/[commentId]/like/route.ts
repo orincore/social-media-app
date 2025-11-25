@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { createClient } from '@/lib/supabase/server';
+import { adminClient } from '@/lib/supabase/admin';
 
 // POST - Like a comment
 export async function POST(
@@ -50,10 +51,10 @@ export async function POST(
       );
     }
 
-    // Increment likes count on comment
+    // Increment likes count on comment and get comment details
     const { data: comment } = await supabase
       .from('comments')
-      .select('likes_count')
+      .select('likes_count, user_id, post_id')
       .eq('id', commentId)
       .single();
 
@@ -62,6 +63,36 @@ export async function POST(
         .from('comments')
         .update({ likes_count: comment.likes_count + 1 })
         .eq('id', commentId);
+
+      // Create comment like notification (only if not liking own comment)
+      if (comment.user_id !== session.user.id) {
+        const { data: likerData } = await supabase
+          .from('users')
+          .select('display_name, username')
+          .eq('id', session.user.id)
+          .single();
+
+        if (likerData) {
+          const { error: notificationError } = await adminClient
+            .from('notifications')
+            .insert({
+              user_id: comment.user_id,
+              actor_id: session.user.id,
+              type: 'like',
+              content: `${likerData.display_name} (@${likerData.username}) liked your comment`,
+              post_id: comment.post_id,
+              comment_id: commentId,
+              is_read: false,
+              created_at: new Date().toISOString()
+            });
+
+          if (notificationError) {
+            console.error('Error creating comment like notification:', notificationError);
+          } else {
+            console.log('Comment like notification created successfully for user:', comment.user_id);
+          }
+        }
+      }
     }
 
     return NextResponse.json({ liked: true });

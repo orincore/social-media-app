@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useNotifications } from '@/hooks/use-notifications';
+import { NotificationBadge } from '@/components/ui/notification-badge';
+import { NotificationToast } from '@/components/ui/notification-toast';
 import { 
   Home, 
   Search, 
@@ -26,16 +29,29 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [previousUnreadCount, setPreviousUnreadCount] = useState(0);
+  const { unreadCount, unreadMessageCount, refreshNotifications } = useNotifications();
+
+  // Show toast when unread count increases
+  useEffect(() => {
+    if (unreadCount > previousUnreadCount && previousUnreadCount > 0) {
+      setToastMessage(`You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`);
+      setShowToast(true);
+    }
+    setPreviousUnreadCount(unreadCount);
+  }, [unreadCount, previousUnreadCount]);
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home, badge: null },
     { name: 'Explore', href: '/explore', icon: Search, badge: null },
-    { name: 'Notifications', href: '/notifications', icon: Bell, badge: null },
-    { name: 'Messages', href: '/messages', icon: Mail, badge: null },
+    { name: 'Notifications', href: '/notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null },
+    { name: 'Messages', href: '/messages', icon: Mail, badge: unreadMessageCount > 0 ? unreadMessageCount : null },
     { name: 'Bookmarks', href: '/bookmarks', icon: Bookmark, badge: null },
     { name: 'Communities', href: '/communities', icon: Users, badge: null },
   ];
@@ -117,7 +133,10 @@ export function MainLayout({ children }: MainLayoutProps) {
                   `}
                 >
                   <div className="flex items-center">
-                    <Icon className={`mr-4 h-6 w-6 ${isActive ? 'text-foreground' : 'text-foreground'}`} />
+                    <div className="relative">
+                      <Icon className={`mr-4 h-6 w-6 ${isActive ? 'text-foreground' : 'text-foreground'}`} />
+                      {item.badge && <NotificationBadge count={item.badge} />}
+                    </div>
                     <span className="block">{item.name}</span>
                   </div>
                 </Link>
@@ -136,7 +155,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
           {/* User Profile */}
           <div className="border-t border-border p-4">
-            <Link href="/profile" className="block">
+            <Link href={`/${(session as any)?.user?.username || 'profile'}`} className="block">
               <div className="flex items-center space-x-3 p-3 rounded-2xl hover:bg-accent transition-all duration-200 cursor-pointer group shadow-soft hover:shadow-medium">
                 <span className="relative flex shrink-0 overflow-hidden rounded-full h-12 w-12 border-2 border-border shadow-soft">
                   <img
@@ -200,6 +219,13 @@ export function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Notification Toast */}
+      <NotificationToast
+        show={showToast}
+        message={toastMessage}
+        onClose={() => setShowToast(false)}
+      />
     </div>
   );
 }

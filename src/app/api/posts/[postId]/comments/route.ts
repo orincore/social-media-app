@@ -281,7 +281,7 @@ export async function POST(
     // Increment replies count on post
     const { data: post } = await supabase
       .from('posts')
-      .select('replies_count')
+      .select('replies_count, user_id')
       .eq('id', postId)
       .single();
 
@@ -290,13 +290,43 @@ export async function POST(
         .from('posts')
         .update({ replies_count: post.replies_count + 1 })
         .eq('id', postId);
+
+      // Create comment notification (only if not commenting on own post)
+      if (post.user_id !== session.user.id) {
+        const { data: commenterData } = await supabase
+          .from('users')
+          .select('display_name, username')
+          .eq('id', session.user.id)
+          .single();
+
+        if (commenterData) {
+          const { error: notificationError } = await adminClient
+            .from('notifications')
+            .insert({
+              user_id: post.user_id,
+              actor_id: session.user.id,
+              type: 'comment',
+              content: `${commenterData.display_name} (@${commenterData.username}) commented on your post`,
+              post_id: postId,
+              comment_id: comment.id,
+              is_read: false,
+              created_at: new Date().toISOString()
+            });
+
+          if (notificationError) {
+            console.error('Error creating comment notification:', notificationError);
+          } else {
+            console.log('Comment notification created successfully for user:', post.user_id);
+          }
+        }
+      }
     }
 
     // If this is a reply to another comment, increment that comment's replies_count
     if (replyToId) {
       const { data: parentComment } = await supabase
         .from('comments')
-        .select('replies_count')
+        .select('replies_count, user_id')
         .eq('id', replyToId)
         .single();
 
@@ -305,6 +335,36 @@ export async function POST(
           .from('comments')
           .update({ replies_count: parentComment.replies_count + 1 })
           .eq('id', replyToId);
+
+        // Create reply notification (only if not replying to own comment)
+        if (parentComment.user_id !== session.user.id) {
+          const { data: replierData } = await supabase
+            .from('users')
+            .select('display_name, username')
+            .eq('id', session.user.id)
+            .single();
+
+          if (replierData) {
+            const { error: replyNotificationError } = await adminClient
+              .from('notifications')
+              .insert({
+                user_id: parentComment.user_id,
+                actor_id: session.user.id,
+                type: 'comment',
+                content: `${replierData.display_name} (@${replierData.username}) replied to your comment`,
+                post_id: postId,
+                comment_id: comment.id,
+                is_read: false,
+                created_at: new Date().toISOString()
+              });
+
+            if (replyNotificationError) {
+              console.error('Error creating reply notification:', replyNotificationError);
+            } else {
+              console.log('Reply notification created successfully for user:', parentComment.user_id);
+            }
+          }
+        }
       }
     }
 

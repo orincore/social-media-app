@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { createClient } from '@/lib/supabase/server';
+import { adminClient } from '@/lib/supabase/admin';
 
 // POST - Repost a post to own feed
 export async function POST(
@@ -82,7 +83,7 @@ export async function POST(
     // Increment reposts count on original post
     const { data: post } = await supabase
       .from('posts')
-      .select('reposts_count')
+      .select('reposts_count, user_id')
       .eq('id', postId)
       .single();
 
@@ -91,6 +92,35 @@ export async function POST(
         .from('posts')
         .update({ reposts_count: post.reposts_count + 1 })
         .eq('id', postId);
+
+      // Create repost notification (only if not reposting own post)
+      if (post.user_id !== session.user.id) {
+        const { data: reposterData } = await supabase
+          .from('users')
+          .select('display_name, username')
+          .eq('id', session.user.id)
+          .single();
+
+        if (reposterData) {
+          const { error: notificationError } = await adminClient
+            .from('notifications')
+            .insert({
+              user_id: post.user_id,
+              actor_id: session.user.id,
+              type: 'repost',
+              content: `${reposterData.display_name} (@${reposterData.username}) reposted your post`,
+              post_id: postId,
+              is_read: false,
+              created_at: new Date().toISOString()
+            });
+
+          if (notificationError) {
+            console.error('Error creating repost notification:', notificationError);
+          } else {
+            console.log('Repost notification created successfully for user:', post.user_id);
+          }
+        }
+      }
     }
 
     return NextResponse.json({ repost, reposted: true });

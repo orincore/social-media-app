@@ -9,6 +9,8 @@ import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, Loader2 } from 'l
 import { CommentModal } from '@/components/post/comment-modal';
 import { ShareModal } from '@/components/post/share-modal';
 import { MediaDisplay } from '@/components/post/media-display';
+import { EditPostModal } from '@/components/post/edit-post-modal';
+import { useNotifications } from '@/hooks/use-notifications';
 
 interface User {
   id: string;
@@ -35,6 +37,8 @@ interface Post {
   reposted_from_user?: User | null;
   is_liked?: boolean;
   is_reposted?: boolean;
+  is_edited?: boolean;
+  edited_at?: string;
 }
 
 interface FeedProps {
@@ -45,6 +49,7 @@ interface FeedProps {
 export function Feed({ hashtag, refreshTrigger }: FeedProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { createNotification } = useNotifications();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -56,8 +61,11 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [sharePostId, setSharePostId] = useState<string>('');
   const [sharePostContent, setSharePostContent] = useState<string>('');
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const fetchPosts = useCallback(async (pageNum: number, append: boolean = false) => {
     try {
@@ -77,48 +85,29 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
         params.set('hashtag', hashtag);
       }
 
-      // Try to get personalized recommendations first
-      let response = await fetch(`/api/recommendations?type=posts&limit=10`);
-      let data: any;
+      // Use regular posts API for now (recommendations can be added later)
+      // TODO: Re-enable recommendations after fixing the algorithm
       
-      if (response.ok) {
-        data = await response.json();
-        // Use recommended posts if available
-        if (data.posts && data.posts.length > 0) {
-          if (append) {
-            setPosts(prev => [...prev, ...data.posts]);
-          } else {
-            setPosts(data.posts);
-            // Set liked/reposted posts from recommendations API response
-            if (data.likedPostIds) {
-              console.log('Setting liked posts from recommendations:', data.likedPostIds);
-              setLikedPosts(new Set(data.likedPostIds));
-            }
-            if (data.repostedPostIds) {
-              console.log('Setting reposted posts from recommendations:', data.repostedPostIds);
-              setRepostedPosts(new Set(data.repostedPostIds));
-            }
-          }
-          setHasMore(data.posts.length === 10);
-          setIsLoading(false);
-          setIsLoadingMore(false);
-          return;
-        }
-      }
-      
-      // Fallback to regular posts if recommendations fail or are empty
-      response = await fetch(`/api/posts?${params.toString()}`);
+      // Fetch regular posts
+      const response = await fetch(`/api/posts?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch posts');
       }
 
-      data = await response.json();
+      const data = await response.json();
+      
+      console.log('Feed API response:', {
+        postsCount: data.posts?.length || 0,
+        posts: data.posts?.slice(0, 2), // Log first 2 posts for debugging
+        likedPostIds: data.likedPostIds?.length || 0,
+        repostedPostIds: data.repostedPostIds?.length || 0
+      });
       
       if (append) {
-        setPosts(prev => [...prev, ...data.posts]);
+        setPosts(prev => [...prev, ...(data.posts || [])]);
       } else {
-        setPosts(data.posts);
+        setPosts(data.posts || []);
         // Set liked/reposted posts from API response
         if (data.likedPostIds) {
           setLikedPosts(new Set(data.likedPostIds));
@@ -155,25 +144,28 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
     if (!session?.user?.id) return;
 
     const isCurrentlyLiked = likedPosts.has(postId);
-    
-    // Optimistic update
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            likes_count: isCurrentlyLiked ? post.likes_count - 1 : post.likes_count + 1
-          }
-        : post
-    ));
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
 
+    // Optimistic update
     if (isCurrentlyLiked) {
       setLikedPosts(prev => {
         const newSet = new Set(prev);
         newSet.delete(postId);
         return newSet;
       });
+      setPosts(prev => prev.map(p => 
+        p.id === postId 
+          ? { ...p, likes_count: Math.max(0, p.likes_count - 1) }
+          : p
+      ));
     } else {
       setLikedPosts(prev => new Set(prev).add(postId));
+      setPosts(prev => prev.map(p => 
+        p.id === postId 
+          ? { ...p, likes_count: p.likes_count + 1 }
+          : p
+      ));
     }
 
     try {
@@ -181,28 +173,52 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
         method: isCurrentlyLiked ? 'DELETE' : 'POST',
       });
 
+      // Notification is now handled in the API
+
       if (!response.ok) {
-        // Revert on error
-        setPosts(posts.map(post => 
-          post.id === postId 
-            ? { 
-                ...post, 
-                likes_count: isCurrentlyLiked ? post.likes_count + 1 : post.likes_count - 1
-              }
-            : post
-        ));
+        // Revert optimistic update on error
         if (isCurrentlyLiked) {
           setLikedPosts(prev => new Set(prev).add(postId));
+          setPosts(prev => prev.map(p => 
+            p.id === postId 
+              ? { ...p, likes_count: p.likes_count + 1 }
+              : p
+          ));
         } else {
           setLikedPosts(prev => {
             const newSet = new Set(prev);
             newSet.delete(postId);
             return newSet;
           });
+          setPosts(prev => prev.map(p => 
+            p.id === postId 
+              ? { ...p, likes_count: Math.max(0, p.likes_count - 1) }
+              : p
+          ));
         }
       }
     } catch (error) {
-      console.error('Error toggling like:', error);
+      console.error('Error liking post:', error);
+      // Revert optimistic update on error
+      if (isCurrentlyLiked) {
+        setLikedPosts(prev => new Set(prev).add(postId));
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, likes_count: p.likes_count + 1 }
+            : p
+        ));
+      } else {
+        setLikedPosts(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(postId);
+          return newSet;
+        });
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, likes_count: Math.max(0, p.likes_count - 1) }
+            : p
+        ));
+      }
     }
   };
 
@@ -292,6 +308,62 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
     setIsShareModalOpen(false);
     setSharePostId('');
     setSharePostContent('');
+  };
+
+  // Handle edit post
+  const handleEditPost = (post: Post) => {
+    setEditingPost(post);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setIsEditModalOpen(false);
+    setEditingPost(null);
+  };
+
+  const handlePostUpdated = (updatedPost: Post) => {
+    setPosts(prev => prev.map(post => 
+      post.id === updatedPost.id ? updatedPost : post
+    ));
+  };
+
+  // Handle dropdown toggle
+  const handleDropdownToggle = (postId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpenDropdownId(openDropdownId === postId ? null : postId);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdownId(null);
+    };
+
+    if (openDropdownId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openDropdownId]);
+
+  // Handle delete post
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPosts(prev => prev.filter(post => post.id !== postId));
+      } else {
+        console.error('Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -468,7 +540,13 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
 
                 {/* Header */}
                 <div className="flex items-center space-x-1 mb-1">
-                  <h3 className="font-bold text-foreground hover:underline cursor-pointer">
+                  <h3 
+                    className="font-bold text-foreground hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/${username}`);
+                    }}
+                  >
                     {displayName}
                   </h3>
                   {post.user?.is_verified && (
@@ -476,13 +554,64 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
                     <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.27 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
                   </svg>
                 )}
-                  <span className="text-gray-500">@{username}</span>
+                  <span 
+                    className="text-gray-500 hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/${username}`);
+                    }}
+                  >
+                    @{username}
+                  </span>
                 <span className="text-gray-500">·</span>
                 <span className="text-gray-500 hover:underline cursor-pointer">{formatDate(post.created_at)}</span>
+                {post.is_edited && (
+                  <>
+                    <span className="text-gray-500">·</span>
+                    <span className="text-gray-500 text-xs">Edited</span>
+                  </>
+                )}
                 <div className="flex-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
+                {isOwnPost ? (
+                  <div className="relative">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={(e) => handleDropdownToggle(post.id, e)}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                    {openDropdownId === post.id && (
+                      <div className="absolute right-0 top-8 bg-background border border-border rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDropdownId(null);
+                            handleEditPost(post);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
+                        >
+                          Edit post
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDropdownId(null);
+                            handleDeletePost(post.id);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-accent"
+                        >
+                          Delete post
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
 
               {/* Content */}
@@ -605,6 +734,16 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
         isOpen={isShareModalOpen}
         onClose={handleCloseShare}
       />
+
+      {/* Edit Post Modal */}
+      {editingPost && (
+        <EditPostModal
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEdit}
+          post={editingPost}
+          onPostUpdated={handlePostUpdated}
+        />
+      )}
     </div>
   );
 }
