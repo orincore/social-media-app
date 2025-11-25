@@ -29,7 +29,10 @@ export async function GET(
 
     // Check if current user is following this user (if logged in)
     let isFollowing = false;
+    let followRequestPending = false;
+    
     if (session?.user?.id && session.user.id !== user.id) {
+      // Check if following
       const { data: followRecord } = await adminClient
         .from('follows')
         .select('id')
@@ -38,11 +41,25 @@ export async function GET(
         .single();
 
       isFollowing = !!followRecord;
+
+      // If not following and user is private, check for pending follow request
+      if (!isFollowing && user.is_private) {
+        const { data: requestRecord } = await adminClient
+          .from('follow_requests')
+          .select('id, status')
+          .eq('requester_id', session.user.id)
+          .eq('target_id', user.id)
+          .eq('status', 'pending')
+          .single();
+
+        followRequestPending = !!requestRecord;
+      }
     }
 
     return NextResponse.json({
       user,
-      isFollowing
+      isFollowing,
+      followRequestPending
     });
 
   } catch (error) {

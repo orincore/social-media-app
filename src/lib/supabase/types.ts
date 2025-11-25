@@ -399,12 +399,150 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          notification_preferences: Json;
+          privacy_settings: Json;
+          appearance_settings: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          notification_preferences?: Json;
+          privacy_settings?: Json;
+          appearance_settings?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          notification_preferences?: Json;
+          privacy_settings?: Json;
+          appearance_settings?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_token: string;
+          device_info: Json;
+          ip_address: string | null;
+          user_agent: string | null;
+          location_info: Json;
+          is_current: boolean;
+          last_active: string;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_token: string;
+          device_info?: Json;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          location_info?: Json;
+          is_current?: boolean;
+          last_active?: string;
+          created_at?: string;
+          expires_at: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_token?: string;
+          device_info?: Json;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          location_info?: Json;
+          is_current?: boolean;
+          last_active?: string;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Relationships: [];
+      };
+      login_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          device_info: Json;
+          ip_address: string | null;
+          user_agent: string | null;
+          location_info: Json;
+          login_method: string;
+          success: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          device_info?: Json;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          location_info?: Json;
+          login_method?: string;
+          success?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          device_info?: Json;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          location_info?: Json;
+          login_method?: string;
+          success?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      follow_requests: {
+        Row: {
+          id: string;
+          requester_id: string;
+          target_id: string;
+          status: 'pending' | 'accepted' | 'declined';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          requester_id: string;
+          target_id: string;
+          status?: 'pending' | 'accepted' | 'declined';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          requester_id?: string;
+          target_id?: string;
+          status?: 'pending' | 'accepted' | 'declined';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      clean_expired_sessions: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

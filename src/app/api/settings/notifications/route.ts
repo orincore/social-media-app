@@ -67,12 +67,37 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Upsert user settings
+    // First, get existing settings to merge with new ones
+    const { data: existingSettings } = await adminClient
+      .from('user_settings')
+      .select('notification_preferences')
+      .eq('user_id', session.user.id)
+      .single();
+
+    // Default preferences
+    const defaultPreferences = {
+      mentions: true,
+      community: true,
+      product: false,
+      login_alerts: true,
+      email_notifications: true,
+      push_notifications: true
+    };
+
+    // Merge: defaults -> existing -> new (new values take priority)
+    const existingPrefs = existingSettings?.notification_preferences as Record<string, boolean> | null;
+    const mergedPreferences = {
+      ...defaultPreferences,
+      ...(existingPrefs || {}),
+      ...preferences
+    };
+
+    // Upsert user settings with merged preferences
     const { data, error } = await adminClient
       .from('user_settings')
       .upsert({
         user_id: session.user.id,
-        notification_preferences: preferences
+        notification_preferences: mergedPreferences
       }, {
         onConflict: 'user_id'
       })

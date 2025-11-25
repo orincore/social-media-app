@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal, Lock, UserCheck, UserX, Clock } from 'lucide-react';
 import { MediaDisplay } from '@/components/post/media-display';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 
@@ -45,6 +45,21 @@ interface ProfileData {
   followers_count: number;
   following_count: number;
   posts_count: number;
+  is_private?: boolean;
+}
+
+interface FollowRequest {
+  id: string;
+  requester_id: string;
+  status: string;
+  created_at: string;
+  user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_verified: boolean;
+  };
 }
 
 function UserProfileContent() {
@@ -63,9 +78,14 @@ function UserProfileContent() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [followRequestPending, setFollowRequestPending] = useState(false);
+  const [pendingFollowRequests, setPendingFollowRequests] = useState<FollowRequest[]>([]);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   const currentUserId = data?.user?.id;
   const isOwnProfile = profileData?.id === currentUserId;
+  const isPrivateProfile = profileData?.is_private === true;
+  const canViewContent = isOwnProfile || isFollowing || !isPrivateProfile;
 
   // Fetch profile data by username
   useEffect(() => {
@@ -78,6 +98,7 @@ function UserProfileContent() {
           const data = await response.json();
           setProfileData(data.user);
           setIsFollowing(data.isFollowing || false);
+          setFollowRequestPending(data.followRequestPending || false);
         } else if (response.status === 404) {
           // User not found, redirect to 404 or home
           redirect('/home');
@@ -92,9 +113,34 @@ function UserProfileContent() {
     fetchProfile();
   }, [username]);
 
+  // Fetch pending follow requests for own profile
+  useEffect(() => {
+    if (!isOwnProfile || !isPrivateProfile) return;
+    
+    const fetchFollowRequests = async () => {
+      try {
+        const response = await fetch('/api/follow-requests?type=received');
+        if (response.ok) {
+          const data = await response.json();
+          setPendingFollowRequests(data.requests || []);
+        }
+      } catch (error) {
+        console.error('Error fetching follow requests:', error);
+      }
+    };
+
+    fetchFollowRequests();
+  }, [isOwnProfile, isPrivateProfile]);
+
   // Fetch posts based on active tab
   useEffect(() => {
     if (!profileData?.id) return;
+    
+    // Don't fetch posts if profile is private and user can't view content
+    if (!canViewContent) {
+      setPosts([]);
+      return;
+    }
     
     const fetchPosts = async () => {
       setPostsLoading(true);
@@ -136,7 +182,7 @@ function UserProfileContent() {
     };
 
     fetchPosts();
-  }, [profileData?.id, activeTab]);
+  }, [profileData?.id, activeTab, canViewContent]);
 
   // Handle follow/unfollow
   const handleFollow = async () => {
@@ -151,18 +197,78 @@ function UserProfileContent() {
         },
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        setIsFollowing(!isFollowing);
-        // Update follower count optimistically
-        setProfileData(prev => prev ? {
-          ...prev,
-          followers_count: prev.followers_count + (isFollowing ? -1 : 1)
-        } : null);
+        // Check if this was a follow request (for private profiles)
+        if (data.requestSent) {
+          setFollowRequestPending(true);
+        } else {
+          setIsFollowing(!isFollowing);
+          // Update follower count optimistically
+          setProfileData(prev => prev ? {
+            ...prev,
+            followers_count: prev.followers_count + (isFollowing ? -1 : 1)
+          } : null);
+        }
+      } else if (data.requestPending) {
+        setFollowRequestPending(true);
       }
     } catch (error) {
       console.error('Error following/unfollowing user:', error);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  // Handle cancel follow request
+  const handleCancelRequest = async () => {
+    if (!profileData) return;
+    
+    setFollowLoading(true);
+    try {
+      const response = await fetch(`/api/follow-requests?target_id=${profileData.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setFollowRequestPending(false);
+      }
+    } catch (error) {
+      console.error('Error canceling follow request:', error);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  // Handle accept/decline follow request
+  const handleFollowRequestResponse = async (requestId: string, action: 'accept' | 'decline') => {
+    setProcessingRequestId(requestId);
+    try {
+      const response = await fetch('/api/follow-requests/respond', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ request_id: requestId, action }),
+      });
+
+      if (response.ok) {
+        // Remove the request from the list
+        setPendingFollowRequests(prev => prev.filter(req => req.id !== requestId));
+        
+        // If accepted, update follower count
+        if (action === 'accept') {
+          setProfileData(prev => prev ? {
+            ...prev,
+            followers_count: prev.followers_count + 1
+          } : null);
+        }
+      }
+    } catch (error) {
+      console.error('Error responding to follow request:', error);
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
@@ -313,6 +419,21 @@ function UserProfileContent() {
                 >
                   Edit profile
                 </Button>
+              ) : followRequestPending ? (
+                <Button 
+                  onClick={handleCancelRequest}
+                  disabled={followLoading}
+                  className="rounded-full border border-border bg-transparent px-4 py-2 text-sm font-semibold text-foreground hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20"
+                >
+                  {followLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Requested
+                    </span>
+                  )}
+                </Button>
               ) : (
                 <Button 
                   onClick={handleFollow}
@@ -327,6 +448,11 @@ function UserProfileContent() {
                     <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
                   ) : isFollowing ? (
                     'Following'
+                  ) : isPrivateProfile ? (
+                    <span className="flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5" />
+                      Request to Follow
+                    </span>
                   ) : (
                     'Follow'
                   )}
@@ -338,7 +464,19 @@ function UserProfileContent() {
           {/* Bio section */}
           <div className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
             <div>
-              <h1 className="text-lg font-semibold text-foreground sm:text-xl">{displayName}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold text-foreground sm:text-xl">{displayName}</h1>
+                {isPrivateProfile && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full
+                      bg-muted text-muted-foreground border border-border
+                      dark:bg-amber-200 dark:text-amber-900 dark:border-amber-400"
+                  >
+                    <Lock className="h-3 w-3" />
+                    Private
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">@{userUsername}</p>
             </div>
             
@@ -399,9 +537,75 @@ function UserProfileContent() {
             ))}
           </div>
 
+          {/* Follow Requests Section (only for own private profile) */}
+          {isOwnProfile && isPrivateProfile && pendingFollowRequests.length > 0 && (
+            <div className="border-t border-border/40 p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <UserCheck className="h-4 w-4" />
+                Follow Requests ({pendingFollowRequests.length})
+              </h3>
+              <div className="space-y-3">
+                {pendingFollowRequests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-3 rounded-xl bg-accent/30">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-muted">
+                        <img 
+                          src={request.user?.avatar_url || 'https://lh3.googleusercontent.com/a/ACg8ocIuWzWw1B56vwCXPzDzuzTzOvgyuH1i6yfFf5JCUFYQVH4u7qQK8A=s96-c'} 
+                          alt={request.user?.display_name || 'User'}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{request.user?.display_name || 'User'}</p>
+                        <p className="text-xs text-muted-foreground">@{request.user?.username || 'user'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleFollowRequestResponse(request.id, 'accept')}
+                        disabled={processingRequestId === request.id}
+                        className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs"
+                      >
+                        {processingRequestId === request.id ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-white" />
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <UserCheck className="h-3 w-3" />
+                            Accept
+                          </span>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFollowRequestResponse(request.id, 'decline')}
+                        disabled={processingRequestId === request.id}
+                        className="rounded-full border-border text-muted-foreground hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 px-3 py-1 text-xs"
+                      >
+                        <span className="flex items-center gap-1">
+                          <UserX className="h-3 w-3" />
+                          Decline
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Posts Content */}
           <div className="border-t border-border/40">
-            {postsLoading ? (
+            {!canViewContent ? (
+              <div className="py-12 text-center">
+                <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">This Account is Private</h3>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                  Follow this account to see their posts and activity.
+                </p>
+              </div>
+            ) : postsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-blue-500" />
               </div>

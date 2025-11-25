@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Default privacy settings if none exist
+    // profile_visibility: true means profile is public, false means private
     const defaultSettings = {
       safety_prompts: true,
-      profile_visibility: false,
+      profile_visibility: true,
       discoverability: true,
       show_online_status: true
     };
@@ -65,12 +66,36 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Upsert user settings
+    // First, get existing settings to merge with new ones
+    const { data: existingSettings } = await adminClient
+      .from('user_settings')
+      .select('privacy_settings')
+      .eq('user_id', session.user.id)
+      .single();
+
+    // Default privacy settings
+    // profile_visibility: true means profile is public, false means private
+    const defaultSettings = {
+      safety_prompts: true,
+      profile_visibility: true,
+      discoverability: true,
+      show_online_status: true
+    };
+
+    // Merge: defaults -> existing -> new (new values take priority)
+    const existingPrivacy = existingSettings?.privacy_settings as Record<string, boolean> | null;
+    const mergedSettings = {
+      ...defaultSettings,
+      ...(existingPrivacy || {}),
+      ...settings
+    };
+
+    // Upsert user settings with merged settings
     const { data, error } = await adminClient
       .from('user_settings')
       .upsert({
         user_id: session.user.id,
-        privacy_settings: settings
+        privacy_settings: mergedSettings
       }, {
         onConflict: 'user_id'
       })
@@ -80,6 +105,16 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Error updating privacy settings:', error);
       return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+    }
+
+    // Sync profile_visibility to users.is_private for easier queries
+    // Convention: profile_visibility === true => public profile (is_private=false)
+    //             profile_visibility === false => private profile (is_private=true)
+    if (settings.profile_visibility !== undefined) {
+      await adminClient
+        .from('users')
+        .update({ is_private: !settings.profile_visibility })
+        .eq('id', session.user.id);
     }
 
     return NextResponse.json({ 

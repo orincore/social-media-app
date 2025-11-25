@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: settings, error } = await adminClient
-      .from('user_settings' as any)
+      .from('user_settings')
       .select('appearance_settings')
       .eq('user_id', session.user.id)
       .single();
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
 
     // Upsert user settings
     const { data, error } = await adminClient
-      .from('user_settings' as any)
+      .from('user_settings')
       .upsert({
         user_id: session.user.id,
         appearance_settings: settings

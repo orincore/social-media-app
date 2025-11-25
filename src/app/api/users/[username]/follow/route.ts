@@ -24,7 +24,7 @@ export async function POST(
     // Get user by username
     const { data: targetUser, error: userError } = await adminClient
       .from('users')
-      .select('id, username')
+      .select('id, username, is_private')
       .eq('username', username)
       .single();
 
@@ -50,7 +50,82 @@ export async function POST(
       return NextResponse.json({ error: 'Already following this user' }, { status: 400 });
     }
 
-    // Create follow relationship
+    // If user is private, send follow request instead of direct follow
+    if (targetUser.is_private) {
+      // Check if request already exists
+      const { data: existingRequest } = await adminClient
+        .from('follow_requests')
+        .select('id, status')
+        .eq('requester_id', followerId)
+        .eq('target_id', userId)
+        .single();
+
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          return NextResponse.json({ 
+            error: 'Follow request already pending',
+            requestPending: true 
+          }, { status: 400 });
+        }
+        if (existingRequest.status === 'declined') {
+          // Update existing declined request to pending
+          await adminClient
+            .from('follow_requests')
+            .update({ status: 'pending', updated_at: new Date().toISOString() })
+            .eq('id', existingRequest.id);
+
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Follow request sent',
+            requestSent: true 
+          });
+        }
+      }
+
+      // Create new follow request
+      const { error: requestError } = await adminClient
+        .from('follow_requests')
+        .insert({
+          requester_id: followerId,
+          target_id: userId,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (requestError) {
+        console.error('Error creating follow request:', requestError);
+        return NextResponse.json({ error: 'Failed to send follow request' }, { status: 500 });
+      }
+
+      // Create notification for target user
+      const { data: followerData } = await adminClient
+        .from('users')
+        .select('display_name, username')
+        .eq('id', followerId)
+        .single();
+
+      if (followerData) {
+        await adminClient
+          .from('notifications')
+          .insert({
+            user_id: userId,
+            actor_id: followerId,
+            type: 'follow',
+            content: `${followerData.display_name} (@${followerData.username}) requested to follow you`,
+            is_read: false,
+            created_at: new Date().toISOString()
+          });
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Follow request sent',
+        requestSent: true 
+      });
+    }
+
+    // Create follow relationship (for public profiles)
     const { error: followError } = await adminClient
       .from('follows')
       .insert({

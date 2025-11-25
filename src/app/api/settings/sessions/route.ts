@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     await adminClient.rpc('clean_expired_sessions');
 
     const { data: sessions, error } = await adminClient
-      .from('user_sessions' as any)
+      .from('user_sessions')
       .select('*')
       .eq('user_id', session.user.id)
       .order('last_active', { ascending: false });
@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete the session
     const { error } = await adminClient
-      .from('user_sessions' as any)
+      .from('user_sessions')
       .delete()
       .eq('id', sessionId)
       .eq('user_id', session.user.id); // Ensure user can only delete their own sessions

@@ -199,12 +199,56 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Filter out posts from private profiles that the user doesn't follow
+    let filteredPosts = rawPosts || [];
+    
+    if (filteredPosts.length > 0) {
+      // Get all unique user IDs from posts
+      const postUserIds = Array.from(new Set(filteredPosts.map(p => p.user_id).filter(Boolean)));
+      
+      // Fetch user privacy settings
+      const { data: usersWithPrivacy } = await adminClient
+        .from('users')
+        .select('id, is_private')
+        .in('id', postUserIds);
+      
+      const privateUserIds = new Set(
+        usersWithPrivacy?.filter(u => u.is_private).map(u => u.id) || []
+      );
+      
+      // If there are private users, check which ones the current user follows
+      if (privateUserIds.size > 0 && session?.user?.id) {
+        const { data: followingData } = await adminClient
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', session.user.id)
+          .in('following_id', Array.from(privateUserIds));
+        
+        const followedPrivateUsers = new Set(followingData?.map(f => f.following_id) || []);
+        
+        // Filter posts: keep if user is not private, or if current user follows them, or if it's their own post
+        filteredPosts = filteredPosts.filter(post => {
+          // Always show own posts
+          if (post.user_id === session?.user?.id) return true;
+          // Show if user is not private
+          if (!privateUserIds.has(post.user_id)) return true;
+          // Show if current user follows this private user
+          if (followedPrivateUsers.has(post.user_id)) return true;
+          // Hide private user's posts
+          return false;
+        });
+      } else if (privateUserIds.size > 0 && !session?.user?.id) {
+        // Not logged in - hide all posts from private profiles
+        filteredPosts = filteredPosts.filter(post => !privateUserIds.has(post.user_id));
+      }
+    }
+
     // Fetch all users for these posts separately (guaranteed to work)
-    const userIds = Array.from(new Set(rawPosts?.map(p => p.user_id).filter(Boolean) || []));
+    const userIds = Array.from(new Set(filteredPosts?.map(p => p.user_id).filter(Boolean) || []));
 
     // Also collect original post IDs for reposts so we can resolve original user
     const originalPostIds = Array.from(new Set(
-      rawPosts
+      filteredPosts
         ?.map(p => p.repost_of_id as string | null)
         .filter((id): id is string => !!id) || []
     ));
@@ -248,7 +292,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Combine posts with user data and original user for reposts
-    const posts = rawPosts?.map(p => {
+    const posts = filteredPosts?.map(p => {
       const user = userMap.get(p.user_id) || null;
 
       let repostedFromUser: UserRecord | null = null;
@@ -485,6 +529,67 @@ export async function POST(request: NextRequest) {
       mentions = mentionMatches 
         ? Array.from(new Set(mentionMatches.map((mention: string) => mention.slice(1).toLowerCase())))
         : [];
+    }
+
+    // Respect users' notification preferences: if a user has disabled mentions,
+    // prevent other users from tagging them in posts.
+    if (mentions.length > 0) {
+      // Look up mentioned users by username
+      const { data: mentionedUsers, error: mentionedUsersError } = await adminClient
+        .from('users')
+        .select('id, username')
+        .in('username', mentions);
+
+      if (mentionedUsersError) {
+        console.error('Error fetching mentioned users:', mentionedUsersError);
+        return NextResponse.json(
+          { error: 'Failed to validate mentions' },
+          { status: 500 }
+        );
+      }
+
+      if (mentionedUsers && mentionedUsers.length > 0) {
+        const mentionedUserIds = mentionedUsers.map(u => u.id);
+
+        const { data: settingsRows, error: settingsError } = await adminClient
+          .from('user_settings')
+          .select('user_id, notification_preferences')
+          .in('user_id', mentionedUserIds);
+
+        if (settingsError) {
+          console.error('Error fetching notification preferences for mentions:', settingsError);
+          return NextResponse.json(
+            { error: 'Failed to validate mentions' },
+            { status: 500 }
+          );
+        }
+
+        const prefsByUserId = new Map<string, any>(
+          (settingsRows || []).map(row => [row.user_id, row.notification_preferences])
+        );
+
+        const blockedUsernames: string[] = [];
+
+        for (const user of mentionedUsers) {
+          const rawPrefs = prefsByUserId.get(user.id) as any | undefined;
+          const mentionsAllowed =
+            rawPrefs && typeof rawPrefs.mentions === 'boolean' ? rawPrefs.mentions : true;
+
+          if (!mentionsAllowed) {
+            blockedUsernames.push(user.username);
+          }
+        }
+
+        if (blockedUsernames.length > 0) {
+          return NextResponse.json(
+            {
+              error: 'Some users have disabled mentions & replies. Remove these mentions to post.',
+              blockedUsernames,
+            },
+            { status: 400 }
+          );
+        }
+      }
     }
     
     // TEMPORARY FIX: The database constraint seems to require either media_urls OR specific content format
