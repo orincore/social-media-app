@@ -1,0 +1,1 @@
+Theme: Background white and content black and viseversa in dark mode
