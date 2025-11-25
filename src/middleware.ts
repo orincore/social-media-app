@@ -11,6 +11,7 @@ export async function middleware(request: NextRequest) {
     '/auth/signup',
     '/auth/error',
     '/api/auth',
+    '/api/debug/env',
   ];
 
   const isPublicRoute = publicRoutes.some(route =>
