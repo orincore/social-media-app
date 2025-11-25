@@ -11,6 +11,7 @@ import { PostActionsBar } from '@/components/post/post-actions-bar';
 import { ReplyInput } from '@/components/post/reply-input';
 import { CommentThread } from '@/components/post/comment-thread';
 import { MediaDisplay } from '@/components/post/media-display';
+import { ClickableContent } from '@/components/ui/clickable-content';
 
 interface User {
   id: string;
@@ -385,41 +386,6 @@ export default function PostDetailPage() {
     return count.toString();
   };
 
-  const renderContent = (text: string) => {
-    const parts = text.split(/([@#]\w+)/g);
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('@') && part.length > 1) {
-        return (
-          <span 
-            key={index} 
-            className="text-blue-500 hover:underline cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/profile/${part.slice(1)}`);
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      if (part.startsWith('#') && part.length > 1) {
-        return (
-          <span 
-            key={index} 
-            className="text-blue-500 hover:underline cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/hashtag/${part.slice(1)}`);
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return <span key={index}>{part}</span>;
-    });
-  };
 
   if (isLoading) {
     return (
@@ -460,9 +426,10 @@ export default function PostDetailPage() {
         <article>
           {/* Post Text */}
           <div className="px-4 py-3">
-            <p className="text-primary text-xl leading-relaxed whitespace-pre-wrap">
-              {renderContent(post.content)}
-            </p>
+            <ClickableContent 
+              content={post.content}
+              className="text-primary text-xl leading-relaxed whitespace-pre-wrap"
+            />
           </div>
 
           {/* Media */}
@@ -527,7 +494,6 @@ export default function PostDetailPage() {
                   onReply={setReplyingTo}
                   onLike={handleCommentLike}
                   onLoadMoreReplies={loadMoreReplies}
-                  renderContent={renderContent}
                   formatRelativeDate={formatRelativeDate}
                 />
               ))}

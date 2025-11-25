@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PencilLine, Search, ShieldCheck, MessageCircle } from 'lucide-react';
 import { NewMessageModal } from './new-message-modal';
+import { ActivityStatus } from './activity-status';
+import { useTypingActivity } from '@/hooks/use-typing-activity';
 
 interface Chat {
   id: string;
@@ -34,6 +36,7 @@ const safetyTips = [
 
 export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }: ConversationListProps) {
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
+  const { userActivities } = useTypingActivity();
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -50,29 +53,29 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
     }
   };
   return (
-    <div className="flex h-full w-full flex-col rounded-3xl border border-slate-800/70 bg-gradient-to-b from-slate-950/90 to-slate-900/70 p-4 backdrop-blur lg:p-6">
+    <div className="flex h-full w-full flex-col rounded-3xl border border-border bg-background/90 p-4 backdrop-blur lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest text-slate-500">Inbox</p>
-          <h1 className="text-xl font-bold text-white lg:text-2xl">Messages</h1>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Inbox</p>
+          <h1 className="text-xl font-bold text-foreground lg:text-2xl">Messages</h1>
         </div>
         <Button 
           size="icon" 
           onClick={() => setIsNewMessageModalOpen(true)}
-          className="h-10 w-10 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 lg:h-12 lg:w-12"
+          className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground shadow-lg lg:h-12 lg:w-12"
         >
           <PencilLine className="h-4 w-4 lg:h-5 lg:w-5" />
         </Button>
       </div>
 
       {/* Search */}
-      <div className="mt-6 flex items-center rounded-2xl bg-slate-900/70 px-4 py-3 text-sm text-slate-300 ring-1 ring-slate-800">
-        <Search className="mr-3 h-5 w-5 text-slate-500" />
+      <div className="mt-6 flex items-center rounded-2xl bg-muted/50 px-4 py-3 text-sm text-foreground ring-1 ring-border">
+        <Search className="mr-3 h-5 w-5 text-muted-foreground" />
         <input
           type="search"
           placeholder="Search conversations"
-          className="flex-1 bg-transparent text-base text-white placeholder:text-slate-500 focus:outline-none"
+          className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
       </div>
 
@@ -80,10 +83,10 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
       <div className="mt-6 flex-1 overflow-hidden">
         {chats.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center space-y-4 text-center">
-            <MessageCircle className="h-12 w-12 text-slate-600" />
+            <MessageCircle className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-slate-300">No conversations yet</h3>
-              <p className="text-sm text-slate-500">Start a conversation by sending a message to someone.</p>
+              <h3 className="text-lg font-semibold text-foreground">No conversations yet</h3>
+              <p className="text-sm text-muted-foreground">Start a conversation by sending a message to someone.</p>
             </div>
           </div>
         ) : (
@@ -92,8 +95,8 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
               <div
                 key={chat.id}
                 onClick={() => onSelect(chat.id)}
-                className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-slate-800/50 ${
-                  selectedId === chat.id ? 'bg-slate-800/70' : ''
+                className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-accent/50 ${
+                  selectedId === chat.id ? 'bg-accent/70' : ''
                 }`}
               >
                 <div className="relative">
@@ -114,13 +117,20 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-200 truncate">{chat.other_user.display_name}</h3>
-                    <span className="text-xs text-slate-500">{formatTimestamp(chat.updated_at)}</span>
+                    <h3 className="font-semibold text-foreground truncate">{chat.other_user.display_name}</h3>
+                    <span className="text-xs text-muted-foreground">{formatTimestamp(chat.updated_at)}</span>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm text-slate-400 truncate">@{chat.other_user.username}</p>
+                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                      <p className="text-sm text-muted-foreground truncate">@{chat.other_user.username}</p>
+                      <ActivityStatus 
+                        isOnline={userActivities[chat.other_user.id]?.isOnline || false}
+                        lastSeen={userActivities[chat.other_user.id]?.lastSeen}
+                        className="flex-shrink-0"
+                      />
+                    </div>
                     {chat.unread_count > 0 && (
-                      <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                      <span className="ml-2 bg-primary text-primary-foreground text-xs rounded-full px-2 py-1 min-w-[20px] text-center flex-shrink-0">
                         {chat.unread_count > 99 ? '99+' : chat.unread_count}
                       </span>
                     )}
@@ -133,15 +143,15 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
       </div>
 
       {/* Safety Tips */}
-      <div className="mt-6 rounded-2xl border border-slate-800/70 bg-slate-900/70 p-5">
-        <div className="flex items-center gap-3 text-white">
-          <ShieldCheck className="h-5 w-5 text-blue-400" />
+      <div className="mt-6 rounded-2xl border border-border bg-muted/50 p-5">
+        <div className="flex items-center gap-3 text-foreground">
+          <ShieldCheck className="h-5 w-5 text-primary" />
           <p className="font-semibold">Safety first</p>
         </div>
-        <ul className="mt-4 space-y-3 text-sm text-slate-300">
+        <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
           {safetyTips.map((tip) => (
             <li key={tip} className="flex items-start gap-3">
-              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
               <span>{tip}</span>
             </li>
           ))}

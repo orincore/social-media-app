@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Heart, MessageCircle, Share } from 'lucide-react';
+import { ClickableContent } from '@/components/ui/clickable-content';
+import { ClickableAvatar } from '@/components/ui/clickable-avatar';
 
 interface User {
   id: string;
@@ -35,7 +37,6 @@ interface CommentThreadProps {
   onLike: (commentId: string) => void;
   onLoadMoreReplies: (commentId: string) => void;
   shouldShowReplies?: boolean;
-  renderContent: (content: string) => React.ReactNode;
   formatRelativeDate: (date: string) => string;
 }
 
@@ -46,7 +47,6 @@ export function CommentThread({
   onLike,
   onLoadMoreReplies,
   shouldShowReplies,
-  renderContent,
   formatRelativeDate,
 }: CommentThreadProps) {
   const router = useRouter();
@@ -77,7 +77,7 @@ export function CommentThread({
     <div className="bg-background">
       {/* Parent Comment */}
       <article className="px-4 py-3 hover:bg-accent/10 transition-colors">
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-start">
           {/* Avatar with thread line */}
           <div className="flex flex-col items-center">
             <Avatar 
@@ -119,9 +119,10 @@ export function CommentThread({
             </div>
             
             {/* Comment text */}
-            <p className="text-secondary text-[15px] leading-relaxed mt-1 whitespace-pre-wrap">
-              {renderContent(comment.content)}
-            </p>
+            <ClickableContent 
+              content={comment.content}
+              className="text-secondary text-[15px] leading-relaxed mt-1 whitespace-pre-wrap"
+            />
             
             {/* Actions */}
             <div className="flex items-center gap-6 mt-2 -ml-2">
@@ -183,7 +184,6 @@ export function CommentThread({
               likedComments={likedComments}
               onReply={onReply}
               onLike={onLike}
-              renderContent={renderContent}
               formatRelativeDate={formatRelativeDate}
             />
           ))}
@@ -212,7 +212,6 @@ interface ReplyItemProps {
   likedComments: Set<string>;
   onReply: (comment: Comment) => void;
   onLike: (commentId: string) => void;
-  renderContent: (content: string) => React.ReactNode;
   formatRelativeDate: (date: string) => string;
 }
 
@@ -223,7 +222,6 @@ function ReplyItem({
   likedComments,
   onReply,
   onLike,
-  renderContent,
   formatRelativeDate,
 }: ReplyItemProps) {
   const router = useRouter();
@@ -238,7 +236,7 @@ function ReplyItem({
 
   return (
     <article className="px-4 py-2 hover:bg-accent/10 transition-colors">
-      <div className="flex gap-3 pl-[52px]">
+      <div className="flex gap-3 pl-[52px] items-start">
         {/* Thread connection line */}
         <div className="absolute left-[68px] -mt-2 w-6 h-4 border-l-2 border-b-2 border-border rounded-bl-lg" />
         
@@ -287,9 +285,10 @@ function ReplyItem({
           </p>
           
           {/* Reply text */}
-          <p className="text-secondary text-sm leading-relaxed mt-1.5 whitespace-pre-wrap">
-            {renderContent(reply.content)}
-          </p>
+          <ClickableContent 
+            content={reply.content}
+            className="text-secondary text-sm leading-relaxed mt-1.5 whitespace-pre-wrap"
+          />
           
           {/* Reply Actions */}
           <div className="flex items-center gap-4 mt-2 -ml-2">

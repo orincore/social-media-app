@@ -31,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Fetch messages
+    // Fetch messages with sender info (paginated, newest first for pagination, then reverse)
     const { data: messages, error } = await adminClient
       .from('messages')
       .select(`
@@ -45,7 +45,7 @@ export async function GET(
         )
       `)
       .eq('chat_id', chatId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }) // Newest first for pagination
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -53,19 +53,26 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    // Mark messages as read (except own messages)
-    if (messages && messages.length > 0) {
-      const unreadMessageIds = messages
-        .filter(msg => !msg.is_read && msg.sender_id !== session.user!.id)
-        .map(msg => msg.id);
+    // Reverse to show oldest first in UI
+    const reversedMessages = (messages || []).reverse();
 
-      if (unreadMessageIds.length > 0) {
-        await adminClient
-          .from('messages')
-          .update({ is_read: true })
-          .in('id', unreadMessageIds);
-      }
+    // Mark messages as read for current user (only for first page)
+    if (page === 1) {
+      await adminClient
+        .from('messages')
+        .update({ is_read: true })
+        .eq('chat_id', chatId)
+        .neq('sender_id', session.user.id)
+        .eq('is_read', false);
     }
+
+    // Get total count for pagination info
+    const { count: totalCount } = await adminClient
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('chat_id', chatId);
+
+    const hasMore = totalCount ? offset + limit < totalCount : false;
 
     // Get chat details with participant info
     const { data: users } = await adminClient
@@ -79,13 +86,13 @@ export async function GET(
       other_user: users?.find(u => u.id !== session.user!.id)
     };
 
-    return NextResponse.json({
-      messages: messages?.reverse() || [], // Reverse to show oldest first
-      chat: chatWithUsers,
+    return NextResponse.json({ 
+      messages: reversedMessages,
       pagination: {
         page,
         limit,
-        hasMore: (messages?.length || 0) === limit
+        total: totalCount || 0,
+        hasMore
       }
     });
 

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { redirect, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Camera, X } from 'lucide-react';
+import { AvatarUpload } from '@/components/profile/avatar-upload';
 import { useMediaUpload } from '@/hooks/use-media-upload';
 
 interface ProfileData {
@@ -36,7 +37,6 @@ export default function EditProfilePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -68,23 +68,9 @@ export default function EditProfilePage() {
     }
   }, [session, status]);
 
-  // Handle avatar upload
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type and size
-    if (!file.type.startsWith('image/')) {
-      setErrors(prev => ({ ...prev, avatar: 'Please select an image file' }));
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      setErrors(prev => ({ ...prev, avatar: 'Image must be less than 5MB' }));
-      return;
-    }
-
-    setAvatarFile(file);
+  // Handle avatar upload completion
+  const handleAvatarUploadComplete = (avatarUrl: string) => {
+    setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }));
     setErrors(prev => ({ ...prev, avatar: '' }));
   };
 
@@ -156,24 +142,7 @@ export default function EditProfilePage() {
 
     setSaving(true);
     try {
-      let avatarUrl = profileData.avatar_url;
       let bannerUrl = profileData.banner_url;
-
-      // Upload new avatar if selected
-      if (avatarFile) {
-        try {
-          await uploadMedia([avatarFile]);
-          if (uploadedMedia.length > 0) {
-            avatarUrl = uploadedMedia[0].url;
-            clearMedia(); // Clear after using
-          }
-        } catch (error) {
-          console.error('Avatar upload failed:', error);
-          setErrors(prev => ({ ...prev, avatar: 'Failed to upload avatar' }));
-          setSaving(false);
-          return;
-        }
-      }
 
       // Upload new banner if selected
       if (bannerFile) {
@@ -203,7 +172,7 @@ export default function EditProfilePage() {
         bio: profileData.bio.trim(),
         location: profileData.location.trim(),
         website: websiteUrl,
-        avatar_url: avatarUrl,
+        avatar_url: profileData.avatar_url,
         banner_url: bannerUrl
       };
 
@@ -225,7 +194,7 @@ export default function EditProfilePage() {
               ...session?.user,
               name: updateData.display_name,
               username: updateData.username,
-              image: avatarUrl
+              image: profileData.avatar_url
             }
           });
         }
@@ -313,28 +282,12 @@ export default function EditProfilePage() {
 
             {/* Avatar */}
             <div className="absolute -bottom-16 left-4">
-              <div className="relative">
-                <div className="h-32 w-32 rounded-full border-4 border-background bg-muted overflow-hidden">
-                  <img
-                    src={
-                      avatarFile 
-                        ? URL.createObjectURL(avatarFile)
-                        : profileData.avatar_url || 'https://lh3.googleusercontent.com/a/ACg8ocIuWzWw1B56vwCXPzDzuzTzOvgyuH1i6yfFf5JCUFYQVH4u7qQK8A=s96-c'
-                    }
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <label className="absolute inset-0 cursor-pointer bg-black/50 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                  <Camera className="h-8 w-8 text-white" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              <AvatarUpload
+                currentAvatarUrl={profileData.avatar_url}
+                displayName={profileData.display_name}
+                size="lg"
+                onUploadComplete={handleAvatarUploadComplete}
+              />
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { TrendingUp, Hash, MapPin } from 'lucide-react';
 
 const trendingTopics = [
@@ -36,6 +37,14 @@ const trendingTopics = [
 ];
 
 export function TrendingTopics() {
+  const router = useRouter();
+
+  const handleHashtagClick = (hashtag: string) => {
+    // Remove the # symbol for the route
+    const tag = hashtag.startsWith('#') ? hashtag.slice(1) : hashtag;
+    router.push(`/hashtag/${tag}`);
+  };
+
   return (
     <div className="bg-card/80 backdrop-blur-sm border border-border rounded-3xl p-6 shadow-medium hover:shadow-large transition-all duration-300 animate-slide-up">
       <div className="flex items-center space-x-2 mb-4">
@@ -48,6 +57,7 @@ export function TrendingTopics() {
           <div
             key={topic.hashtag}
             className="group p-3 rounded-2xl hover:bg-accent/60 transition-all duration-200 cursor-pointer shadow-soft hover:shadow-medium"
+            onClick={() => handleHashtagClick(topic.hashtag)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">

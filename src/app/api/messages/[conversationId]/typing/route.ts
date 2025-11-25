@@ -3,22 +3,33 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { adminClient } from '@/lib/supabase/admin';
 
-// In-memory store for typing indicators (in production, use Redis)
-const typingIndicators = new Map<string, {
+// Shared typing indicators map (in production, use Redis)
+type TypingIndicator = {
   userId: string;
   chatId: string;
   timestamp: number;
   username: string;
   displayName: string;
-}>();
+};
 
-// Clean up old typing indicators (older than 5 seconds)
+// Use a global variable to share state between API calls
+declare global {
+  var typingIndicators: Map<string, TypingIndicator> | undefined;
+}
+
+// Initialize the map if it doesn't exist
+if (!globalThis.typingIndicators) {
+  globalThis.typingIndicators = new Map();
+}
+const typingIndicators = globalThis.typingIndicators;
+
+// Clean up old typing indicators (older than 1 second for immediate cleanup)
 const cleanupTypingIndicators = () => {
   const now = Date.now();
-  const fiveSecondsAgo = now - 5000;
+  const oneSecondAgo = now - 1000; // Reduced to 1 second for immediate cleanup
   
   for (const [key, indicator] of typingIndicators.entries()) {
-    if (indicator.timestamp < fiveSecondsAgo) {
+    if (indicator.timestamp < oneSecondAgo) {
       typingIndicators.delete(key);
     }
   }

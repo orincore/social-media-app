@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
       // Function to send new messages and activity updates
       const sendUpdates = async () => {
         try {
+          // Check if controller is still open
+          if (request.signal.aborted) {
+            return;
+          }
+
           // Get user's chats
           const { data: chats } = await adminClient
             .from('chats')
@@ -54,13 +59,16 @@ export async function GET(request: NextRequest) {
             .order('created_at', { ascending: false });
 
           if (newMessages && newMessages.length > 0) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ 
-                type: 'new_messages', 
-                messages: newMessages,
-                timestamp: Date.now()
-              })}\n\n`)
-            );
+            // Check again before enqueueing
+            if (!request.signal.aborted) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ 
+                  type: 'new_messages', 
+                  messages: newMessages,
+                  timestamp: Date.now()
+                })}\n\n`)
+              );
+            }
           }
 
           // Send unread message count
@@ -71,73 +79,21 @@ export async function GET(request: NextRequest) {
             .neq('sender_id', session.user!.id)
             .eq('is_read', false);
 
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ 
-              type: 'unread_count', 
-              count: unreadCount || 0,
-              timestamp: Date.now()
-            })}\n\n`)
-          );
-
-          // Send typing indicators for each chat
-          for (const chat of chats) {
-            try {
-              const typingResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/messages/${chat.id}/typing`, {
-                headers: {
-                  'Cookie': request.headers.get('Cookie') || ''
-                }
-              });
-              
-              if (typingResponse.ok) {
-                const typingData = await typingResponse.json();
-                if (typingData.typingUsers && typingData.typingUsers.length > 0) {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ 
-                      type: 'typing_indicators', 
-                      chatId: chat.id,
-                      typingUsers: typingData.typingUsers,
-                      timestamp: Date.now()
-                    })}\n\n`)
-                  );
-                }
-              }
-            } catch (typingError) {
-              // Ignore typing indicator errors
-            }
+          // Check again before enqueueing
+          if (!request.signal.aborted) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ 
+                type: 'unread_count', 
+                count: unreadCount || 0,
+                timestamp: Date.now()
+              })}\n\n`)
+            );
           }
 
-          // Send activity status for chat participants
-          const allParticipants = new Set<string>();
-          chats.forEach(chat => {
-            chat.participants.forEach((id: string) => {
-              if (id !== session.user!.id) {
-                allParticipants.add(id);
-              }
-            });
-          });
-
-          if (allParticipants.size > 0) {
-            try {
-              const activityResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/users/activity?userIds=${Array.from(allParticipants).join(',')}`, {
-                headers: {
-                  'Cookie': request.headers.get('Cookie') || ''
-                }
-              });
-              
-              if (activityResponse.ok) {
-                const activityData = await activityResponse.json();
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ 
-                    type: 'user_activity', 
-                    activities: activityData.activities,
-                    timestamp: Date.now()
-                  })}\n\n`)
-                );
-              }
-            } catch (activityError) {
-              // Ignore activity errors
-            }
-          }
+          // Note: Typing indicators and activity status are now handled 
+          // by separate SSE connections to avoid infinite loops.
+          // The frontend will establish separate EventSource connections
+          // for typing and activity updates if needed.
 
         } catch (error) {
           console.error('Error fetching updates for SSE:', error);
@@ -147,8 +103,8 @@ export async function GET(request: NextRequest) {
       // Send initial data
       sendUpdates();
 
-      // Set up polling every 2 seconds for real-time updates
-      const interval = setInterval(sendUpdates, 2000);
+      // Set up polling every 1 second for real-time updates (faster for typing indicators)
+      const interval = setInterval(sendUpdates, 1000);
 
       // Cleanup function
       const cleanup = () => {

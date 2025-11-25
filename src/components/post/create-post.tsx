@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Image, MapPin, Smile, Calendar, BarChart3, Globe, Loader2, X, Play, Video } from 'lucide-react';
 import { useMediaUpload } from '@/hooks/use-media-upload';
+import { AutocompleteTextarea } from '@/components/ui/autocomplete-textarea';
 
 interface CreatePostProps {
   onPostCreated?: () => void;
@@ -17,6 +18,7 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mentionedUsers, setMentionedUsers] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadedMedia, isUploading, uploadProgress, uploadMedia, removeMedia, clearMedia, markAsPosted } = useMediaUpload();
 
@@ -62,10 +64,33 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
       });
 
       if (response.ok) {
+        const postData = await response.json();
+        
+        // Send mention notifications if there are mentioned users
+        if (mentionedUsers.length > 0) {
+          try {
+            await fetch('/api/notifications/mentions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                postId: postData.post.id,
+                mentionedUserIds: mentionedUsers.map(user => user.id),
+                content: content.trim()
+              }),
+            });
+          } catch (mentionError) {
+            console.error('Failed to send mention notifications:', mentionError);
+            // Don't fail the post creation if notifications fail
+          }
+        }
+        
         // Mark media as successfully posted to prevent cleanup
         markAsPosted();
         
         setContent('');
+        setMentionedUsers([]);
         setIsExpanded(false);
         clearMedia();
         
@@ -217,14 +242,16 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
         
         <div className="flex-1">
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <textarea
+            <div className="mb-4" onClick={() => setIsExpanded(true)}>
+              <AutocompleteTextarea
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onFocus={() => setIsExpanded(true)}
+                onChange={setContent}
+                onMention={setMentionedUsers}
                 placeholder="What's happening?"
-                className="w-full bg-transparent text-foreground placeholder-gray-500 text-xl resize-none border-none outline-none min-h-[60px] max-h-[300px] focus:ring-0"
+                className="w-full bg-transparent text-foreground placeholder-gray-500 text-xl p-4"
                 maxLength={maxLength}
+                minRows={3}
+                maxRows={12}
               />
             </div>
 
@@ -274,46 +301,15 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
             />
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleMediaButtonClick}
                   disabled={isUploading || uploadedMedia.length >= 4}
                   className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Add media (photos, videos, GIFs)"
                 >
                   <Image className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <BarChart3 className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <Calendar className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <MapPin className="w-5 h-5" />
                 </button>
               </div>
 

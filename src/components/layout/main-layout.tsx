@@ -53,7 +53,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { name: 'Notifications', href: '/notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null },
     { name: 'Messages', href: '/messages', icon: Mail, badge: unreadMessageCount > 0 ? unreadMessageCount : null },
     { name: 'Bookmarks', href: '/bookmarks', icon: Bookmark, badge: null },
-    { name: 'Communities', href: '/communities', icon: Users, badge: null },
   ];
 
   const handleSignOut = () => {
@@ -62,14 +61,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Mobile Header - always visible, controls sidebar */}
-      <div className="lg:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-soft">
+      {/* Mobile Header */}
+      {!pathname.startsWith('/messages/') && (
+        <div className="lg:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-soft">
         <div className="flex items-center justify-between px-3 py-2.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="text-foreground hover:bg-accent"
           >
             {isMobileMenuOpen ? (
               <X className="h-5 w-5" />
@@ -87,17 +87,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <Button
             variant="ghost"
             size="icon"
-            className="text-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="text-foreground hover:bg-accent"
           >
             <Search className="h-5 w-5" />
           </Button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 bottom-0 z-40 w-64 sm:w-72 lg:w-64 bg-background border-r border-border transform transition-transform duration-300 ease-in-out
-        top-14
+        fixed left-0 bottom-0 z-40 w-64 sm:w-72 lg:w-64 bg-background/95 backdrop-blur-md border-r border-border transform transition-transform duration-300 ease-in-out
+        ${pathname.startsWith('/messages/') ? 'top-0' : 'top-14'}
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:top-0 lg:bottom-0 lg:translate-x-0
       `}>
@@ -215,7 +216,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* Main content */}
       <div className="lg:ml-64">
-        <main className="min-h-screen">
+        <main className={`min-h-screen ${pathname.startsWith('/messages/') ? '' : 'pt-14'} lg:pt-0`}>
           {children}
         </main>
       </div>

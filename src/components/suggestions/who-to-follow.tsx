@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Check } from 'lucide-react';
+import { ClickableAvatar } from '@/components/ui/clickable-avatar';
 
 const suggestions = [
   {
@@ -36,6 +38,7 @@ const suggestions = [
 ];
 
 export function WhoToFollow() {
+  const router = useRouter();
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
 
   const handleFollow = (userId: string) => {
@@ -66,12 +69,14 @@ export function WhoToFollow() {
               key={user.id}
               className="flex items-start space-x-3 p-3 rounded-2xl hover:bg-accent/60 transition-all duration-200 shadow-soft hover:shadow-medium"
             >
-              <Avatar className="h-10 w-10 border border-border shadow-soft">
-                <AvatarImage src={user.avatar || undefined} />
-                <AvatarFallback className="bg-muted text-muted-foreground">
-                  {user.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
+              <ClickableAvatar
+                username={user.username}
+                displayName={user.name}
+                avatarUrl={user.avatar}
+                size="md"
+                showVerified={true}
+                isVerified={user.verified}
+              />
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-1">
@@ -82,7 +87,15 @@ export function WhoToFollow() {
                     <Check className="w-4 h-4 text-foreground" />
                   )}
                 </div>
-                <p className="text-blue-500 text-xs hover:underline transition-colors">@{user.username}</p>
+                <p 
+                  className="text-blue-500 text-xs hover:underline transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/${user.username}`);
+                  }}
+                >
+                  @{user.username}
+                </p>
                 <p className="text-muted-foreground text-xs mt-1 line-clamp-2 hover:text-accent-foreground transition-colors">
                   {user.bio}
                 </p>

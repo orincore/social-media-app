@@ -3,12 +3,23 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { adminClient } from '@/lib/supabase/admin';
 
-// In-memory store for user activity (in production, use Redis)
-const userActivity = new Map<string, {
+// Shared user activity map (in production, use Redis)
+type UserActivity = {
   userId: string;
   lastSeen: number;
   isOnline: boolean;
-}>();
+};
+
+// Use a global variable to share state between API calls
+declare global {
+  var userActivity: Map<string, UserActivity> | undefined;
+}
+
+// Initialize the map if it doesn't exist
+if (!globalThis.userActivity) {
+  globalThis.userActivity = new Map();
+}
+const userActivity = globalThis.userActivity;
 
 // Consider user offline after 2 minutes of inactivity
 const OFFLINE_THRESHOLD = 2 * 60 * 1000; // 2 minutes

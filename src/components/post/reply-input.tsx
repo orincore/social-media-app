@@ -1,10 +1,11 @@
 'use client';
 
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, X } from 'lucide-react';
+import { AutocompleteTextarea } from '@/components/ui/autocomplete-textarea';
 
 interface Comment {
   id: string;
@@ -30,9 +31,10 @@ export function ReplyInput({
   isSubmitting,
   replyingTo,
   onCancelReply,
-  maxLength = 280,
+  maxLength = 1000,
 }: ReplyInputProps) {
   const { data: session } = useSession();
+  const [mentionedUsers, setMentionedUsers] = useState<any[]>([]);
 
   return (
     <div className="px-4 py-3">
@@ -61,14 +63,15 @@ export function ReplyInput({
         </Avatar>
         
         <div className="flex-1 flex items-center gap-3">
-          <input
-            type="text"
+          <AutocompleteTextarea
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={onChange}
+            onMention={setMentionedUsers}
             placeholder="Post your reply"
-            className="flex-1 bg-transparent text-primary placeholder-tertiary text-base focus:outline-none border-b border-border focus:border-blue-500 pb-1 transition-colors"
+            className="flex-1 bg-transparent text-primary placeholder-tertiary text-base px-3 py-2"
             maxLength={maxLength}
-            disabled={isSubmitting}
+            minRows={1}
+            maxRows={6}
           />
           
           <Button

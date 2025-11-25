@@ -11,6 +11,8 @@ import { ShareModal } from '@/components/post/share-modal';
 import { MediaDisplay } from '@/components/post/media-display';
 import { EditPostModal } from '@/components/post/edit-post-modal';
 import { useNotifications } from '@/hooks/use-notifications';
+import { ClickableContent } from '@/components/ui/clickable-content';
+import { ClickableAvatar } from '@/components/ui/clickable-avatar';
 
 interface User {
   id: string;
@@ -44,9 +46,10 @@ interface Post {
 interface FeedProps {
   hashtag?: string;
   refreshTrigger?: number;
+  feedType?: 'foryou' | 'following';
 }
 
-export function Feed({ hashtag, refreshTrigger }: FeedProps) {
+export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { createNotification } = useNotifications();
@@ -83,6 +86,10 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
 
       if (hashtag) {
         params.set('hashtag', hashtag);
+      }
+
+      if (feedType) {
+        params.set('feedType', feedType);
       }
 
       // Use regular posts API for now (recommendations can be added later)
@@ -124,7 +131,7 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [hashtag]);
+  }, [hashtag, feedType]);
 
   // Initial fetch and refresh when trigger changes
   useEffect(() => {
@@ -383,42 +390,6 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
     }
   };
 
-  const renderContent = (text: string) => {
-    // Split by hashtags and mentions while keeping the delimiters
-    const parts = text.split(/([@#]\w+)/g);
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('@') && part.length > 1) {
-        return (
-          <span 
-            key={index} 
-            className="text-blue-500 hover:underline cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/profile/${part.slice(1)}`);
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      if (part.startsWith('#') && part.length > 1) {
-        return (
-          <span 
-            key={index} 
-            className="text-blue-500 hover:underline cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/hashtag/${part.slice(1)}`);
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return <span key={index}>{part}</span>;
-    });
-  };
 
   const formatCount = (count: number) => {
     if (count >= 1000000) {
@@ -459,6 +430,27 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
   }
 
   if (posts.length === 0) {
+    if (feedType === 'following') {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+            <Heart className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-foreground text-lg font-semibold mb-2">No posts from people you follow</p>
+          <p className="text-muted-foreground text-sm mb-4 max-w-md">
+            Follow some users to see their posts here, or switch to "For you" to discover new content.
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/explore')}
+            className="rounded-full"
+          >
+            Discover people to follow
+          </Button>
+        </div>
+      );
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-muted-foreground text-lg mb-2">No posts yet</p>
@@ -504,17 +496,15 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
             className="p-4 transition-colors cursor-pointer"
             onClick={() => router.push(`/post/${post.id}`)}
           >
-            <div className="flex space-x-3">
-              {/* Avatar */}
-              <Avatar className="h-10 w-10 flex-shrink-0">
-                <AvatarImage 
-                  src={avatarUrl || ''} 
-                  alt={displayName}
-                />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                  {avatarInitial}
-                </AvatarFallback>
-              </Avatar>
+            <div className="flex space-x-3 items-start">
+              {/* Clickable Avatar */}
+              <ClickableAvatar
+                username={username}
+                displayName={displayName}
+                avatarUrl={avatarUrl}
+                size="md"
+                className="flex-shrink-0"
+              />
 
               {/* Post content */}
               <div className="flex-1 min-w-0">
@@ -616,7 +606,10 @@ export function Feed({ hashtag, refreshTrigger }: FeedProps) {
 
               {/* Content */}
               <div className="mb-3">
-                <p className="text-foreground text-[15px] leading-normal whitespace-pre-wrap">{renderContent(post.content)}</p>
+                <ClickableContent 
+                  content={post.content}
+                  className="text-foreground text-[15px] leading-normal whitespace-pre-wrap"
+                />
               </div>
 
               {/* Media if exists */}

@@ -1,72 +1,66 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { TrendingTopics } from '@/components/trending/trending-topics';
-import { WhoToFollow } from '@/components/suggestions/who-to-follow';
-import { Flame, TrendingUp, Clock, Hash, Globe2, ArrowUpRight } from 'lucide-react';
+import { RightSidebar } from '@/components/sidebar/right-sidebar';
+import { Flame, TrendingUp, Clock, Hash, Globe2, ArrowUpRight, Sparkles } from 'lucide-react';
 
-interface TrendItem {
+interface TrendingHashtag {
   id: string;
+  name: string;
+  posts_count: number;
+  rank: number;
+  display: string;
   category: string;
-  title: string;
-  posts: string;
-  change: string;
-  region: string;
+  updated_at: string;
 }
-
-const topTrends: TrendItem[] = [
-  {
-    id: '1',
-    category: 'Politics',
-    title: 'Election2024',
-    posts: '127K',
-    change: '+21% today',
-    region: 'Global',
-  },
-  {
-    id: '2',
-    category: 'Technology',
-    title: 'AI Safety',
-    posts: '89K',
-    change: '+13% today',
-    region: 'US · EU',
-  },
-  {
-    id: '3',
-    category: 'Climate',
-    title: 'ClimateAction',
-    posts: '56K',
-    change: '+34% today',
-    region: 'Global South',
-  },
-  {
-    id: '4',
-    category: 'Economy',
-    title: 'CostOfLiving',
-    posts: '42K',
-    change: '+8% today',
-    region: 'UK',
-  },
-  {
-    id: '5',
-    category: 'Rights',
-    title: 'DigitalFreedom',
-    posts: '31K',
-    change: '+19% today',
-    region: 'Global',
-  },
-];
 
 function TrendingContent() {
   const { status } = useSession();
+  const router = useRouter();
+  const [trendingHashtags, setTrendingHashtags] = useState<TrendingHashtag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState('24h');
 
-  if (status === 'loading') {
+  useEffect(() => {
+    fetchTrendingData();
+  }, []);
+
+  const fetchTrendingData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/hashtags/trending?limit=20');
+      if (response.ok) {
+        const data = await response.json();
+        setTrendingHashtags(data.hashtags || []);
+      }
+    } catch (error) {
+      console.error('Error fetching trending data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCount = (count: number) => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`;
+    } else if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`;
+    }
+    return count.toString();
+  };
+
+  const handleHashtagClick = (hashtag: string) => {
+    router.push(`/hashtag/${hashtag}`);
+  };
+
+  if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-9 w-9 animate-spin rounded-full border-b-2 border-blue-500" />
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     );
   }
@@ -76,84 +70,137 @@ function TrendingContent() {
   }
 
   return (
-    <div className="min-h-screen w-full pb-12">
-      <div className="mx-auto mt-4 flex w-full max-w-[1000px] flex-col gap-8 px-3 sm:mt-6 sm:px-6 lg:mt-8 lg:px-8">
-        {/* Trending Feed */}
-        <section className="w-full space-y-6">
+    <div className="min-h-screen flex w-full">
+      {/* Main Content */}
+      <div className="flex-1 border-r border-border min-h-screen">
+        <div className="max-w-2xl mx-auto">
           {/* Header */}
-          <div className="rounded-3xl border border-border/60 bg-slate-950/80 px-4 py-4 backdrop-blur sm:px-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-blue-400 sm:h-10 sm:w-10">
-                  <TrendingUp className="h-5 w-5" />
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-full">
+                    <Flame className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">Trending</h1>
+                    <p className="text-sm text-muted-foreground">Discover what's happening now</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white sm:text-2xl">Trending</h1>
-                  <p className="text-sm text-slate-400">Live view of topics shaping the conversation.</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full border border-border/60 text-slate-300 hover:border-border hover:text-white"
-              >
-                <Clock className="mr-2 h-4 w-4" />
-                Last 24h
-              </Button>
-            </div>
-          </div>
-
-          {/* Top trends list */}
-          <div className="rounded-3xl border border-border/60 bg-slate-950/70 p-4 backdrop-blur sm:p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Flame className="h-4 w-4 text-orange-400" />
-                <span className="text-xs font-semibold uppercase tracking-widest">Top trends</span>
-              </div>
-              <span className="text-xs text-slate-500 flex items-center gap-1">
-                <Globe2 className="h-3.5 w-3.5" />
-                Global + local mix
-              </span>
-            </div>
-            <div className="divide-y divide-border/40">
-              {topTrends.map((trend, index) => (
-                <button
-                  key={trend.id}
-                  className="flex w-full items-center gap-3 py-3 text-left transition hover:bg-slate-900/70 rounded-2xl px-2"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setTimeFilter(timeFilter === '24h' ? '7d' : '24h')}
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-slate-400 text-xs font-semibold">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">{trend.category}</span>
-                      <span className="text-[11px] text-slate-500">· {trend.region}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Hash className="h-4 w-4 text-blue-400" />
-                      <p className="truncate text-sm font-semibold text-white sm:text-[15px]">{trend.title}</p>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400">{trend.posts} posts · {trend.change}</p>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 flex-shrink-0 text-slate-500" />
-                </button>
-              ))}
+                  <Clock className="mr-2 h-4 w-4" />
+                  Last {timeFilter}
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Context section */}
-          <div className="rounded-3xl border border-border/60 bg-slate-950/70 p-5 backdrop-blur">
-            <div className="flex items-center gap-2 text-slate-300">
-              <TrendingUp className="h-4 w-4 text-blue-400" />
-              <p className="text-sm font-semibold">Why these trends?</p>
+          {/* Trending Stats */}
+          <div className="px-4 py-6">
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-card border border-border rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full mx-auto mb-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                </div>
+                <div className="text-2xl font-bold text-foreground">{trendingHashtags.length}</div>
+                <div className="text-xs text-muted-foreground">Active Topics</div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-full mx-auto mb-2">
+                  <Sparkles className="w-4 h-4 text-green-500" />
+                </div>
+                <div className="text-2xl font-bold text-foreground">
+                  {formatCount(trendingHashtags.reduce((sum, h) => sum + h.posts_count, 0))}
+                </div>
+                <div className="text-xs text-muted-foreground">Total Posts</div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-full mx-auto mb-2">
+                  <Globe2 className="w-4 h-4 text-purple-500" />
+                </div>
+                <div className="text-2xl font-bold text-foreground">Global</div>
+                <div className="text-xs text-muted-foreground">Coverage</div>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-slate-400">
-              Trends on Social Pulse surface topics that are seeing meaningful, high-quality participation—not just raw volume.
-              Signals include cross-community engagement, diversity of voices, and healthy reply ratios.
-            </p>
+
+            {/* Trending List */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Flame className="w-5 h-5 text-orange-500" />
+                    <h2 className="text-lg font-semibold text-foreground">Top Trending</h2>
+                  </div>
+                  <span className="text-sm text-muted-foreground">Real-time data</span>
+                </div>
+              </div>
+              
+              <div className="divide-y divide-border">
+                {trendingHashtags.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <Hash className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No trending topics yet</h3>
+                    <p className="text-muted-foreground">Start posting with hashtags to see trends!</p>
+                  </div>
+                ) : (
+                  trendingHashtags.map((hashtag, index) => (
+                    <button
+                      key={hashtag.id}
+                      onClick={() => handleHashtagClick(hashtag.name)}
+                      className="w-full px-6 py-4 text-left hover:bg-accent/50 transition-colors duration-200"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              {hashtag.category}
+                            </span>
+                            <TrendingUp className="w-3 h-3 text-green-500" />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Hash className="w-4 h-4 text-blue-500" />
+                            <span className="font-semibold text-foreground hover:text-blue-500 transition-colors">
+                              {hashtag.name}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {formatCount(hashtag.posts_count)} posts
+                          </p>
+                        </div>
+                        <ArrowUpRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Info Section */}
+            <div className="mt-6 bg-card border border-border rounded-2xl p-6">
+              <div className="flex items-center space-x-2 mb-3">
+                <TrendingUp className="w-5 h-5 text-blue-500" />
+                <h3 className="text-lg font-semibold text-foreground">How trending works</h3>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Trending topics are determined by the volume and velocity of posts using specific hashtags. 
+                Our algorithm considers engagement quality, user diversity, and recent activity to surface 
+                the most relevant conversations happening right now.
+              </p>
+            </div>
           </div>
-        </section>
+        </div>
       </div>
+
+      {/* Right Sidebar */}
+      <RightSidebar />
     </div>
   );
 }
@@ -162,8 +209,8 @@ export default function TrendingPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="h-9 w-9 animate-spin rounded-full border-b-2 border-blue-500" />
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
         </div>
       }
     >

@@ -1,56 +1,54 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { BookmarkPlus, Clock, Sparkles } from 'lucide-react';
-import { TrendingTopics } from '@/components/trending/trending-topics';
-import { WhoToFollow } from '@/components/suggestions/who-to-follow';
+import { redirect, useRouter } from 'next/navigation';
+import { BookmarkPlus, Clock, Sparkles, Bookmark, Heart, MessageCircle, Repeat2, Share, Archive } from 'lucide-react';
+import { RightSidebar } from '@/components/sidebar/right-sidebar';
 import { Button } from '@/components/ui/button';
+import { useBookmarks } from '@/hooks/use-bookmarks';
 
-interface SavedPost {
-  id: string;
-  author: string;
-  handle: string;
-  time: string;
-  excerpt: string;
-  context: string;
-}
-
-const savedPosts: SavedPost[] = [
-  {
-    id: '1',
-    author: 'Policy Futures Lab',
-    handle: 'policyfutures',
-    time: '2d',
-    excerpt: 'Three principles for citizen-led AI governance in cities.',
-    context: 'Thread · Civic tech',
-  },
-  {
-    id: '2',
-    author: 'Civic Signals Council',
-    handle: 'civic_signals',
-    time: '5d',
-    excerpt: 'Metrics that actually measure healthy conversations—not just engagement.',
-    context: 'Article · Research',
-  },
-  {
-    id: '3',
-    author: 'Open Data Commons',
-    handle: 'opendatacommons',
-    time: '1w',
-    excerpt: 'Designing APIs that respect communities and their contexts.',
-    context: 'Space recap · Infrastructure',
-  },
-];
 
 function BookmarksContent() {
   const { status } = useSession();
+  const router = useRouter();
+  const { bookmarks, isLoading, error, fetchBookmarks, removeBookmark } = useBookmarks();
 
-  if (status === 'loading') {
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchBookmarks();
+    }
+  }, [status, fetchBookmarks]);
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      return diffInMinutes < 1 ? 'now' : `${diffInMinutes}m`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays}d`;
+    }
+  };
+
+  const handlePostClick = (postId: string) => {
+    router.push(`/post/${postId}`);
+  };
+
+  const handleRemoveBookmark = async (e: React.MouseEvent, postId: string) => {
+    e.stopPropagation();
+    await removeBookmark(postId);
+  };
+
+  if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-9 w-9 animate-spin rounded-full border-b-2 border-blue-500" />
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     );
   }
@@ -60,87 +58,135 @@ function BookmarksContent() {
   }
 
   return (
-    <div className="min-h-screen w-full pb-12">
-      <div className="mx-auto mt-4 flex w-full max-w-[1500px] flex-col gap-8 px-3 sm:mt-6 sm:px-6 lg:mt-8 lg:flex-row lg:items-start lg:px-8 xl:gap-12">
-        {/* Bookmarks feed */}
-        <section className="flex-1 w-full max-w-[960px] rounded-3xl border border-border/60 bg-slate-950/60 backdrop-blur">
+    <div className="min-h-screen flex w-full">
+      {/* Main Content */}
+      <div className="flex-1 border-r border-border min-h-screen">
+        <div className="max-w-2xl mx-auto">
           {/* Header */}
-          <div className="border-b border-border/40 bg-slate-950/90 backdrop-blur-xl">
-            <div className="flex items-center justify-between px-4 py-4 sm:px-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-blue-400 sm:h-10 sm:w-10">
-                  <BookmarkPlus className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white sm:text-2xl">Bookmarks</h1>
-                  <p className="text-sm text-slate-400">Your saved threads, reports, and Spaces.</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full border border-border/60 text-slate-300 hover:border-border hover:text-white"
-              >
-                <Clock className="mr-2 h-4 w-4" />
-                Sort
-              </Button>
-            </div>
-          </div>
-
-          {/* Empty / Saved posts */}
-          {savedPosts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center text-slate-400">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 text-blue-400">
-                <BookmarkPlus className="h-7 w-7" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white sm:text-xl">No bookmarks yet</h2>
-                <p className="mt-2 text-sm text-slate-400">
-                  Save posts you want to revisit later. They will appear here in a clean, distraction-free list.
-                </p>
-              </div>
-              <Button className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-6 text-sm font-semibold shadow-blue-500/25">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Discover posts to bookmark
-              </Button>
-            </div>
-          ) : (
-            <div className="divide-y divide-border/40">
-              {savedPosts.map((post) => (
-                <article key={post.id} className="px-4 py-5 transition-colors hover:bg-slate-900/60 sm:px-6">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 h-9 w-9 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-white sm:text-[15px]">{post.author}</p>
-                        <span className="text-xs text-slate-400">@{post.handle}</span>
-                        <span className="text-xs text-slate-500">· {post.time}</span>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-200 sm:text-[15px]">{post.excerpt}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-400">{post.context}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full border border-border/60 text-slate-400 hover:border-blue-500 hover:text-blue-400"
-                    >
-                      <BookmarkPlus className="h-4 w-4" />
-                    </Button>
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full">
+                    <Archive className="w-5 h-5 text-white" />
                   </div>
-                </article>
-              ))}
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">Bookmarks</h1>
+                    <p className="text-sm text-muted-foreground">Your saved posts and content</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Sort
+                </Button>
+              </div>
             </div>
-          )}
-        </section>
-
-        {/* Right Sidebar */}
-        <aside className="hidden w-full lg:block lg:max-w-[330px] xl:max-w-[360px] lg:ml-auto">
-          <div className="sticky top-10 space-y-4 pr-1 xl:pr-2">
-            <TrendingTopics />
-            <WhoToFollow />
           </div>
-        </aside>
+
+          {/* Content */}
+          <div className="px-4 py-6">
+            {bookmarks.length === 0 ? (
+              <div className="bg-card border border-border rounded-2xl p-8 text-center">
+                <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full mx-auto mb-6">
+                  <Archive className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground mb-2">No bookmarks yet</h2>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Save posts you want to revisit later. They will appear here in a clean, organized list.
+                </p>
+                <Button 
+                  onClick={() => router.push('/')}
+                  className="bg-foreground text-background font-bold rounded-full px-6 py-2 hover:opacity-90"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Discover posts to bookmark
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Archive className="w-5 h-5 text-amber-500" />
+                      <h2 className="text-lg font-semibold text-foreground">Saved Posts</h2>
+                      <span className="text-sm text-muted-foreground">({bookmarks.length})</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="divide-y divide-border">
+                  {bookmarks.map((bookmark) => (
+                    <article 
+                      key={bookmark.id} 
+                      className="px-6 py-4 transition-colors hover:bg-accent/50 cursor-pointer"
+                      onClick={() => handlePostClick(bookmark.post.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="relative">
+                          {bookmark.post.users.avatar_url ? (
+                            <img
+                              src={bookmark.post.users.avatar_url}
+                              alt={bookmark.post.users.display_name}
+                              className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ring-2 ring-gray-200 dark:ring-gray-700">
+                              {bookmark.post.users.display_name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-semibold text-foreground">
+                              {bookmark.post.users.display_name}
+                            </span>
+                            <span className="text-sm text-muted-foreground">@{bookmark.post.users.username}</span>
+                            <span className="text-sm text-muted-foreground">·</span>
+                            <span className="text-sm text-muted-foreground">{formatTime(bookmark.post.created_at)}</span>
+                          </div>
+                          <p className="text-foreground mb-3 leading-relaxed">{bookmark.post.content}</p>
+                          
+                          {/* Post stats */}
+                          <div className="flex items-center space-x-6 text-muted-foreground">
+                            <div className="flex items-center space-x-1">
+                              <MessageCircle className="h-4 w-4" />
+                              <span className="text-sm">{bookmark.post.replies_count}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Repeat2 className="h-4 w-4" />
+                              <span className="text-sm">{bookmark.post.reposts_count}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Heart className="h-4 w-4" />
+                              <span className="text-sm">{bookmark.post.likes_count}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleRemoveBookmark(e, bookmark.post.id)}
+                          className="h-8 w-8 rounded-full text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          title="Remove bookmark"
+                        >
+                          <Bookmark className="h-4 w-4 fill-current" />
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Right Sidebar */}
+      <RightSidebar />
     </div>
   );
 }
@@ -149,8 +195,8 @@ export default function BookmarksPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="h-9 w-9 animate-spin rounded-full border-b-2 border-blue-500" />
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
         </div>
       }
     >
