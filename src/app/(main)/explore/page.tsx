@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { RightSidebar } from '@/components/sidebar/right-sidebar';
@@ -35,11 +35,28 @@ const tabs = ['For You', 'Trending', 'People', 'Topics'];
 function ExploreContent() {
   const { status } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'For You' | 'Trending' | 'People' | 'Topics'>('For You');
+  const searchParams = useSearchParams();
+
+  const tabParam = (searchParams.get('tab') || '').toLowerCase();
+  const initialTab: 'For You' | 'Trending' | 'People' | 'Topics' =
+    tabParam === 'people'
+      ? 'People'
+      : tabParam === 'trending'
+      ? 'Trending'
+      : tabParam === 'topics'
+      ? 'Topics'
+      : 'For You';
+
+  const [activeTab, setActiveTab] = useState<'For You' | 'Trending' | 'People' | 'Topics'>(initialTab);
   const [trendingHashtags, setTrendingHashtags] = useState<TrendingHashtag[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<UserSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Keep active tab in sync with URL query param (e.g. /explore?tab=people)
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const handleHashtagClick = (hashtag: string) => {
     router.push(`/hashtag/${hashtag}`);
@@ -103,9 +120,9 @@ function ExploreContent() {
   }
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="h-screen flex w-full overflow-hidden">
       {/* Main Content */}
-      <div className="flex-1 border-r border-border min-h-screen">
+      <div className="flex-1 border-r border-border h-screen overflow-y-auto">
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">

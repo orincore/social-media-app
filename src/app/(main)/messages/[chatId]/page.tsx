@@ -83,13 +83,13 @@ function ChatContent() {
     }
   }, [chatId]);
 
-  // Send message
-  const sendMessage = useCallback(async (content: string) => {
+  // Send message (with optional media URLs)
+  const sendMessage = useCallback(async (content: string, mediaUrls?: string[]) => {
     try {
       const response = await fetch(`/api/messages/${chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content, mediaUrls })
       });
       
       if (response.ok) {

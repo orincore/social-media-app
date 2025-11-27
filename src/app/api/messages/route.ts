@@ -98,13 +98,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { recipient_id, content, chat_id } = body;
+    const { recipient_id, content, chat_id, mediaUrls } = body as { recipient_id?: string; content?: string; chat_id?: string; mediaUrls?: string[] };
 
-    if (!content?.trim()) {
-      return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
+    const trimmedContent = content?.trim() || '';
+    const hasMedia = Array.isArray(mediaUrls) && mediaUrls.length > 0;
+
+    if (!trimmedContent && !hasMedia) {
+      return NextResponse.json({ error: 'Message content or media is required' }, { status: 400 });
     }
 
-    if (content.length > 1000) {
+    if (trimmedContent.length > 1000) {
       return NextResponse.json({ error: 'Message too long (max 1000 characters)' }, { status: 400 });
     }
 
@@ -156,7 +159,8 @@ export async function POST(request: NextRequest) {
       .insert({
         chat_id: chatId,
         sender_id: session.user.id,
-        content: content.trim(),
+        content: trimmedContent || (hasMedia ? ' ' : ''),
+        media_urls: hasMedia ? mediaUrls : null,
         is_read: false,
         created_at: new Date().toISOString()
       })

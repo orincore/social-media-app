@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Camera, X } from 'lucide-react';
+import { ArrowLeft, Camera } from 'lucide-react';
 import { AvatarUpload } from '@/components/profile/avatar-upload';
-import { useMediaUpload } from '@/hooks/use-media-upload';
+import Cropper from 'react-easy-crop';
 
 interface ProfileData {
   id: string;
@@ -22,7 +22,6 @@ interface ProfileData {
 export default function EditProfilePage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
-  const { uploadMedia, uploadedMedia, clearMedia, isUploading } = useMediaUpload();
 
   const [profileData, setProfileData] = useState<ProfileData>({
     id: '',
@@ -38,6 +37,13 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [rawBannerFile, setRawBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Load current profile data
@@ -101,8 +107,105 @@ export default function EditProfilePage() {
       return;
     }
 
-    setBannerFile(file);
+    setRawBannerFile(file);
+    setBannerPreviewUrl(URL.createObjectURL(file));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setIsCropModalOpen(true);
     setErrors(prev => ({ ...prev, banner: '' }));
+  };
+
+  const onCropComplete = useCallback((_: unknown, croppedPixels: { x: number; y: number; width: number; height: number }) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const createCroppedBannerFile = async (): Promise<File | null> => {
+    if (!rawBannerFile || !bannerPreviewUrl || !croppedAreaPixels) return null;
+
+    return new Promise<File | null>((resolve, reject) => {
+      const image = new Image();
+      image.src = bannerPreviewUrl;
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = croppedAreaPixels.width;
+        canvas.height = croppedAreaPixels.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(
+          image,
+          croppedAreaPixels.x,
+          croppedAreaPixels.y,
+          croppedAreaPixels.width,
+          croppedAreaPixels.height,
+          0,
+          0,
+          croppedAreaPixels.width,
+          croppedAreaPixels.height
+        );
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Canvas is empty'));
+              return;
+            }
+            const ext = rawBannerFile.name.split('.').pop() || 'jpg';
+            const fileName = `banner-${Date.now()}.${ext}`;
+            const croppedFile = new File([blob], fileName, { type: blob.type || rawBannerFile.type });
+            resolve(croppedFile);
+          },
+          rawBannerFile.type || 'image/jpeg',
+          0.95
+        );
+      };
+      image.onerror = (error) => reject(error);
+    });
+  };
+
+  const uploadBannerToR2 = async (file: File): Promise<string> => {
+    setIsUploadingBanner(true);
+    try {
+      const response = await fetch('/api/media/upload-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get upload URL');
+      }
+
+      const { uploadUrl, publicUrl, contentDisposition } = await response.json();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+          ...(contentDisposition ? { 'Content-Disposition': contentDisposition as string } : {}),
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload banner to storage');
+      }
+
+      return publicUrl as string;
+    } finally {
+      setIsUploadingBanner(false);
+    }
   };
 
   // Validate form data
@@ -159,11 +262,7 @@ export default function EditProfilePage() {
       // Upload new banner if selected
       if (bannerFile) {
         try {
-          await uploadMedia([bannerFile]);
-          if (uploadedMedia.length > 0) {
-            bannerUrl = uploadedMedia[0].url;
-            clearMedia(); // Clear after using
-          }
+          bannerUrl = await uploadBannerToR2(bannerFile);
         } catch (error) {
           console.error('Banner upload failed:', error);
           setErrors(prev => ({ ...prev, banner: 'Failed to upload banner' }));
@@ -258,7 +357,7 @@ export default function EditProfilePage() {
             </div>
             <Button
               onClick={handleSave}
-              disabled={saving || isUploading}
+              disabled={saving || isUploadingBanner}
               className="bg-foreground text-background hover:opacity-90 font-semibold px-6"
             >
               {saving ? 'Saving...' : 'Save'}
@@ -272,9 +371,9 @@ export default function EditProfilePage() {
           <div className="relative">
             {/* Banner */}
             <div className="relative h-48 bg-gradient-to-r from-blue-600/50 via-purple-600/50 to-emerald-500/40 rounded-2xl overflow-hidden">
-              {(bannerFile || profileData.banner_url) && (
+              {(bannerPreviewUrl || bannerFile || profileData.banner_url) && (
                 <img
-                  src={bannerFile ? URL.createObjectURL(bannerFile) : profileData.banner_url}
+                  src={bannerPreviewUrl || (bannerFile ? URL.createObjectURL(bannerFile) : profileData.banner_url)}
                   alt="Banner"
                   className="w-full h-full object-cover"
                 />
@@ -422,6 +521,72 @@ export default function EditProfilePage() {
           </div>
         </div>
       </div>
+      {isCropModalOpen && bannerPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-background shadow-xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Crop banner</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs rounded-full"
+                onClick={() => {
+                  setIsCropModalOpen(false);
+                  setRawBannerFile(null);
+                  setBannerPreviewUrl(null);
+                  setCroppedAreaPixels(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+            <div className="relative h-64 bg-black">
+              <Cropper
+                image={bannerPreviewUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={21 / 6}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border gap-4">
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-xs text-muted-foreground">Zoom</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <Button
+                className="rounded-full px-4 text-sm font-semibold"
+                disabled={!croppedAreaPixels || !rawBannerFile}
+                onClick={async () => {
+                  try {
+                    const cropped = await createCroppedBannerFile();
+                    if (!cropped) return;
+                    setBannerFile(cropped);
+                    const url = URL.createObjectURL(cropped);
+                    setBannerPreviewUrl(url);
+                    setIsCropModalOpen(false);
+                  } catch (error) {
+                    console.error('Error cropping banner:', error);
+                    setErrors(prev => ({ ...prev, banner: 'Failed to crop banner' }));
+                  }
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

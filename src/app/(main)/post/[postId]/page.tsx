@@ -75,6 +75,7 @@ export default function PostDetailPage() {
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
 
   // Fetch post details
   const fetchPost = useCallback(async () => {
@@ -158,7 +159,24 @@ export default function PostDetailPage() {
 
   const loadMoreReplies = useCallback(async (commentId: string) => {
     try {
-      const comment = comments.find(c => c.id === commentId);
+      // First check if it's a top-level comment
+      let comment = comments.find(c => c.id === commentId);
+      let isNestedReply = false;
+      let parentCommentId: string | null = null;
+      
+      // If not found in top-level, search in replies (nested)
+      if (!comment) {
+        for (const c of comments) {
+          const foundReply = c.replies?.find(r => r.id === commentId);
+          if (foundReply) {
+            comment = foundReply;
+            isNestedReply = true;
+            parentCommentId = c.id;
+            break;
+          }
+        }
+      }
+      
       if (!comment) return;
 
       const currentRepliesCount = comment.replies?.length || 0;
@@ -170,16 +188,39 @@ export default function PostDetailPage() {
       
       const data = await response.json();
       
-      setComments(prev => prev.map(c => {
-        if (c.id === commentId) {
-          return {
-            ...c,
-            replies: [...(c.replies || []), ...data.comments],
-            hasMoreReplies: data.hasMore
-          };
-        }
-        return c;
-      }));
+      if (isNestedReply && parentCommentId) {
+        // Update nested reply's replies
+        setComments(prev => prev.map(c => {
+          if (c.id === parentCommentId) {
+            return {
+              ...c,
+              replies: c.replies?.map(r => {
+                if (r.id === commentId) {
+                  return {
+                    ...r,
+                    replies: [...(r.replies || []), ...data.comments],
+                    hasMoreReplies: data.hasMore
+                  };
+                }
+                return r;
+              })
+            };
+          }
+          return c;
+        }));
+      } else {
+        // Update top-level comment's replies
+        setComments(prev => prev.map(c => {
+          if (c.id === commentId) {
+            return {
+              ...c,
+              replies: [...(c.replies || []), ...data.comments],
+              hasMoreReplies: data.hasMore
+            };
+          }
+          return c;
+        }));
+      }
 
       // Update liked comments for replies
       if (data.likedCommentIds) {
@@ -420,6 +461,10 @@ export default function PostDetailPage() {
           displayName={displayName}
           username={username}
           avatarUrl={avatarUrl}
+          showReportMenu={!isOwnPost}
+          isHeaderMenuOpen={isHeaderMenuOpen}
+          onToggleMenu={() => setIsHeaderMenuOpen((prev) => !prev)}
+          postId={post.id}
         />
 
         {/* Post Content */}

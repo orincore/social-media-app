@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { ReportButton } from '@/components/report/report-button';
 
 interface User {
   id: string;
@@ -18,9 +19,13 @@ interface PostDetailHeaderProps {
   displayName: string;
   username: string;
   avatarUrl: string | null;
+  showReportMenu?: boolean;
+  isHeaderMenuOpen?: boolean;
+  onToggleMenu?: () => void;
+  postId?: string;
 }
 
-export function PostDetailHeader({ user, displayName, username, avatarUrl }: PostDetailHeaderProps) {
+export function PostDetailHeader({ user, displayName, username, avatarUrl, showReportMenu, isHeaderMenuOpen, onToggleMenu, postId }: PostDetailHeaderProps) {
   const router = useRouter();
   const avatarInitial = (displayName?.charAt(0) || 'U').toUpperCase();
 
@@ -50,7 +55,7 @@ export function PostDetailHeader({ user, displayName, username, avatarUrl }: Pos
           <div className="flex items-center gap-3">
             <Avatar 
               className="h-12 w-12 cursor-pointer"
-              onClick={() => router.push(`/profile/${username}`)}
+              onClick={() => router.push(`/${username}`)}
             >
               <AvatarImage src={avatarUrl || ''} alt={displayName} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
@@ -62,7 +67,7 @@ export function PostDetailHeader({ user, displayName, username, avatarUrl }: Pos
               <div className="flex items-center gap-1.5">
                 <span 
                   className="font-bold text-primary hover:underline cursor-pointer"
-                  onClick={() => router.push(`/profile/${username}`)}
+                  onClick={() => router.push(`/${username}`)}
                 >
                   {displayName}
                 </span>
@@ -78,13 +83,36 @@ export function PostDetailHeader({ user, displayName, username, avatarUrl }: Pos
             </div>
           </div>
           
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 hover:bg-accent rounded-full"
-          >
-            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-          </Button>
+          {showReportMenu && onToggleMenu && postId ? (
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 hover:bg-accent rounded-full"
+                onClick={onToggleMenu}
+              >
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              {isHeaderMenuOpen && (
+                <div className="absolute right-0 top-9 z-20 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-1">
+                  <ReportButton
+                    targetType="post"
+                    targetId={postId}
+                    targetName={username}
+                    variant="menu-item"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 hover:bg-accent rounded-full"
+            >
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
         </div>
       </div>
     </>

@@ -82,7 +82,7 @@ export function CommentThread({
           <div className="flex flex-col items-center">
             <Avatar 
               className="h-10 w-10 cursor-pointer"
-              onClick={() => router.push(`/profile/${username}`)}
+              onClick={() => router.push(`/${username}`)}
             >
               <AvatarImage src={avatarUrl || ''} alt={displayName} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
@@ -102,7 +102,7 @@ export function CommentThread({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span 
                 className="font-bold text-primary hover:underline cursor-pointer"
-                onClick={() => router.push(`/profile/${username}`)}
+                onClick={() => router.push(`/${username}`)}
               >
                 {displayName}
               </span>
@@ -184,7 +184,9 @@ export function CommentThread({
               likedComments={likedComments}
               onReply={onReply}
               onLike={onLike}
+              onLoadMoreReplies={onLoadMoreReplies}
               formatRelativeDate={formatRelativeDate}
+              depth={1}
             />
           ))}
         </div>
@@ -212,7 +214,9 @@ interface ReplyItemProps {
   likedComments: Set<string>;
   onReply: (comment: Comment) => void;
   onLike: (commentId: string) => void;
+  onLoadMoreReplies: (commentId: string) => void;
   formatRelativeDate: (date: string) => string;
+  depth?: number;
 }
 
 function ReplyItem({
@@ -222,10 +226,13 @@ function ReplyItem({
   likedComments,
   onReply,
   onLike,
+  onLoadMoreReplies,
   formatRelativeDate,
+  depth = 1,
 }: ReplyItemProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const [showNestedReplies, setShowNestedReplies] = useState(false);
   
   const isOwnReply = session?.user?.id === reply.user_id;
   const displayName = reply.user?.display_name || (isOwnReply ? session?.user?.name || 'You' : 'Unknown');
@@ -233,6 +240,8 @@ function ReplyItem({
   const avatarUrl = reply.user?.avatar_url || (isOwnReply ? session?.user?.image : null);
   const avatarInitial = (displayName?.charAt(0) || 'U').toUpperCase();
   const isLiked = likedComments.has(reply.id);
+  const hasNestedReplies = reply.replies && reply.replies.length > 0;
+  const totalNestedReplies = reply.replies_count || 0;
 
   return (
     <article className="px-4 py-2 hover:bg-accent/10 transition-colors">
@@ -244,7 +253,7 @@ function ReplyItem({
         <div className="flex flex-col items-center">
           <Avatar 
             className="h-8 w-8 cursor-pointer"
-            onClick={() => router.push(`/profile/${username}`)}
+            onClick={() => router.push(`/${username}`)}
           >
             <AvatarImage src={avatarUrl || ''} alt={displayName} />
             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
@@ -263,7 +272,7 @@ function ReplyItem({
           <div className="flex items-center gap-1.5 flex-wrap text-sm">
             <span 
               className="font-bold text-primary hover:underline cursor-pointer"
-              onClick={() => router.push(`/profile/${username}`)}
+              onClick={() => router.push(`/${username}`)}
             >
               {displayName}
             </span>
@@ -290,17 +299,8 @@ function ReplyItem({
             className="text-secondary text-sm leading-relaxed mt-1.5 whitespace-pre-wrap"
           />
           
-          {/* Reply Actions */}
+          {/* Reply Actions (no reply button for nested replies) */}
           <div className="flex items-center gap-4 mt-2 -ml-2">
-            <button 
-              onClick={() => onReply(reply)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-blue-500/10 hover:text-blue-500 text-muted-foreground transition-colors"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              {reply.replies_count > 0 && (
-                <span className="text-xs">{reply.replies_count}</span>
-              )}
-            </button>
             <button 
               onClick={() => onLike(reply.id)}
               className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-colors ${
@@ -318,8 +318,56 @@ function ReplyItem({
               <Share className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Show/Hide Nested Replies Button */}
+          {totalNestedReplies > 0 && (
+            <div className="mt-2">
+              <button
+                onClick={() => setShowNestedReplies(!showNestedReplies)}
+                className="text-blue-500 text-xs font-medium hover:underline transition-colors"
+              >
+                {showNestedReplies ? (
+                  `Hide ${totalNestedReplies} ${totalNestedReplies === 1 ? 'reply' : 'replies'}`
+                ) : (
+                  `Show ${totalNestedReplies} ${totalNestedReplies === 1 ? 'reply' : 'replies'}`
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Nested Replies */}
+      {showNestedReplies && hasNestedReplies && depth < 5 && (
+        <div className="ml-8">
+          {reply.replies?.map((nestedReply, index) => (
+            <ReplyItem
+              key={nestedReply.id}
+              reply={nestedReply}
+              parentUsername={username}
+              isLastReply={index === (reply.replies?.length || 0) - 1 && !reply.hasMoreReplies}
+              likedComments={likedComments}
+              onReply={onReply}
+              onLike={onLike}
+              onLoadMoreReplies={onLoadMoreReplies}
+              formatRelativeDate={formatRelativeDate}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Show more nested replies */}
+      {showNestedReplies && reply.hasMoreReplies && (
+        <div className="ml-16 py-1">
+          <button 
+            onClick={() => onLoadMoreReplies(reply.id)}
+            className="text-blue-500 text-xs font-medium hover:underline"
+          >
+            Show more replies
+          </button>
+        </div>
+      )}
     </article>
   );
 }

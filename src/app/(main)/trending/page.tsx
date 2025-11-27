@@ -70,9 +70,9 @@ function TrendingContent() {
   }
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="h-screen flex w-full overflow-hidden">
       {/* Main Content */}
-      <div className="flex-1 border-r border-border min-h-screen">
+      <div className="flex-1 border-r border-border h-screen overflow-y-auto">
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">

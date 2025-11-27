@@ -18,6 +18,56 @@ interface UseMediaUploadReturn {
   markAsPosted: () => void; // Mark media as used in a post
 }
 
+// Simple client-side image compression using Canvas
+async function compressImage(file: File): Promise<File> {
+  if (typeof window === 'undefined') return file;
+
+  if (!file.type.startsWith('image/')) {
+    return file;
+  }
+
+  // For GIFs, skip compression to preserve animation
+  if (file.type === 'image/gif') {
+    return file;
+  }
+
+  const imageBitmap = await createImageBitmap(file);
+
+  const maxDimension = 1920; // Max width/height
+  let { width, height } = imageBitmap;
+
+  if (width > maxDimension || height > maxDimension) {
+    const aspectRatio = width / height;
+    if (width > height) {
+      width = maxDimension;
+      height = Math.round(maxDimension / aspectRatio);
+    } else {
+      height = maxDimension;
+      width = Math.round(maxDimension * aspectRatio);
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+
+  ctx.drawImage(imageBitmap, 0, 0, width, height);
+
+  const quality = 0.85; // High quality, visually lossless
+  const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+
+  const blob: Blob | null = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), outputType, quality);
+  });
+
+  if (!blob) return file;
+
+  return new File([blob], file.name, { type: outputType });
+}
+
 export function useMediaUpload(): UseMediaUploadReturn {
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -25,10 +75,10 @@ export function useMediaUpload(): UseMediaUploadReturn {
   const isPostedRef = useRef(false); // Track if media was used in a post
 
   const uploadMedia = useCallback(async (files: FileList | File[]) => {
-    const fileArray = Array.from(files);
+    const originalFiles = Array.from(files);
     
     // Validate file count (max 4 files)
-    if (uploadedMedia.length + fileArray.length > 4) {
+    if (uploadedMedia.length + originalFiles.length > 4) {
       throw new Error('Maximum 4 media files allowed per post');
     }
 
@@ -36,15 +86,12 @@ export function useMediaUpload(): UseMediaUploadReturn {
     setUploadProgress(0);
 
     try {
-      // Try presigned URL upload first, fallback to direct upload
-      let uploadResults;
-      
-      try {
-        uploadResults = await uploadToR2(fileArray);
-      } catch (r2Error) {
-        console.warn('Presigned URL upload failed, trying direct upload:', r2Error);
-        uploadResults = await uploadDirectToR2(fileArray);
-      }
+      // Compress images client-side before upload to save storage and bandwidth
+      const fileArray = await Promise.all(originalFiles.map((file) => compressImage(file)));
+
+      // Upload via presigned URLs (browser -> R2). This avoids server-side TLS issues
+      // on some platforms (e.g. Amplify) when calling R2 directly from the backend.
+      const uploadResults = await uploadToR2(fileArray);
 
       setUploadedMedia(prev => [...prev, ...uploadResults]);
     } catch (error) {
@@ -76,7 +123,7 @@ export function useMediaUpload(): UseMediaUploadReturn {
         throw new Error(error.error || 'Failed to get upload URL');
       }
 
-      const { uploadUrl, publicUrl, fileName } = await response.json();
+      const { uploadUrl, publicUrl, fileName, contentDisposition } = await response.json();
 
       // Upload file directly to R2
       const uploadResponse = await fetch(uploadUrl, {
@@ -84,6 +131,7 @@ export function useMediaUpload(): UseMediaUploadReturn {
         body: file,
         headers: {
           'Content-Type': file.type,
+          ...(contentDisposition ? { 'Content-Disposition': contentDisposition as string } : {}),
         },
       });
 

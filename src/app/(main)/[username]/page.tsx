@@ -4,9 +4,11 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal, Lock, UserCheck, UserX, Clock } from 'lucide-react';
+import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal, Lock, UserCheck, UserX, Clock, Flag } from 'lucide-react';
+import { ReportModal } from '@/components/report/report-modal';
 import { MediaDisplay } from '@/components/post/media-display';
 import { EditPostModal } from '@/components/post/edit-post-modal';
+import { ClickableContent } from '@/components/ui/clickable-content';
 
 const joinedLabel = 'Joined January 2024';
 
@@ -81,6 +83,8 @@ function UserProfileContent() {
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [pendingFollowRequests, setPendingFollowRequests] = useState<FollowRequest[]>([]);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const currentUserId = data?.user?.id;
   const isOwnProfile = profileData?.id === currentUserId;
@@ -166,8 +170,17 @@ function UserProfileContent() {
             posts: data.posts?.slice(0, 2) // Log first 2 posts for debugging
           });
           // API returns { posts: [...], likedPostIds: [...], pagination: {...} }
-          const postsArray = data.posts || [];
-          setPosts(Array.isArray(postsArray) ? postsArray : []);
+          const postsArray: Post[] = Array.isArray(data.posts) ? data.posts : [];
+          const likedPostIds: string[] = Array.isArray(data.likedPostIds) ? data.likedPostIds : [];
+          const likedSet = new Set(likedPostIds);
+
+          const mappedPosts: Post[] = postsArray.map((post) => ({
+            ...post,
+            // Ensure is_liked reflects current user state from API
+            is_liked: likedSet.has(post.id),
+          }));
+
+          setPosts(mappedPosts);
         } else {
           const errorData = await response.text();
           console.error('Failed to fetch posts:', response.status, errorData);
@@ -218,6 +231,65 @@ function UserProfileContent() {
       console.error('Error following/unfollowing user:', error);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  // Handle like/unlike post directly from profile list
+  const handleToggleLike = async (postId: string) => {
+    if (!currentUserId) return;
+
+    let wasLiked = false;
+
+    // Optimistic update
+    setPosts(prev => prev.map(post => {
+      if (post.id === postId) {
+        wasLiked = post.is_liked;
+        const nextLiked = !post.is_liked;
+        const nextCount = post.likes_count + (nextLiked ? 1 : -1);
+        return {
+          ...post,
+          is_liked: nextLiked,
+          likes_count: nextCount < 0 ? 0 : nextCount,
+        };
+      }
+      return post;
+    }));
+
+    try {
+      const response = await fetch(`/api/posts/${postId}/like`, {
+        method: wasLiked ? 'DELETE' : 'POST',
+      });
+
+      if (!response.ok) {
+        // Revert on error
+        setPosts(prev => prev.map(post => {
+          if (post.id === postId) {
+            const revertLiked = wasLiked;
+            const revertCount = post.likes_count + (revertLiked ? 1 : -1);
+            return {
+              ...post,
+              is_liked: revertLiked,
+              likes_count: revertCount < 0 ? 0 : revertCount,
+            };
+          }
+          return post;
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like on profile post:', error);
+      // Revert on error
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          const revertLiked = wasLiked;
+          const revertCount = post.likes_count + (revertLiked ? 1 : -1);
+          return {
+            ...post,
+            is_liked: revertLiked,
+            likes_count: revertCount < 0 ? 0 : revertCount,
+          };
+        }
+        return post;
+      }));
     }
   };
 
@@ -354,6 +426,7 @@ function UserProfileContent() {
   const displayName = profileData.display_name || 'User';
   const userUsername = profileData.username || 'user';
   const avatar = profileData.avatar_url || 'https://lh3.googleusercontent.com/a/ACg8ocIuWzWw1B56vwCXPzDzuzTzOvgyuH1i6yfFf5JCUFYQVH4u7qQK8A=s96-c';
+  const bannerUrl = (profileData as any).banner_url || '';
   const bio = profileData.bio || '';
   const location = profileData.location || '';
   const website = profileData.website || '';
@@ -395,7 +468,20 @@ function UserProfileContent() {
         {/* Profile card */}
         <section className="overflow-hidden rounded-3xl border border-border/60 bg-card/80 backdrop-blur">
           {/* Cover */}
-          <div className="h-24 w-full bg-gradient-to-r from-blue-600/50 via-purple-600/50 to-emerald-500/40 sm:h-32" />
+          <div
+            className="w-full rounded-t-3xl overflow-hidden"
+            style={{ aspectRatio: '21 / 6' }}
+          >
+            {bannerUrl ? (
+              <img
+                src={bannerUrl}
+                alt="Profile banner"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-r from-blue-600/50 via-purple-600/50 to-emerald-500/40" />
+            )}
+          </div>
 
           {/* Avatar + actions */}
           <div className="flex items-start justify-between px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
@@ -405,13 +491,33 @@ function UserProfileContent() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="hidden h-9 w-9 rounded-full border-border text-muted-foreground hover:bg-accent sm:inline-flex"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              {/* Profile menu (only for other users) */}
+              {!isOwnProfile && (
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowProfileMenu(!showProfileMenu)}
+                    className="hidden h-9 w-9 rounded-full border-border text-muted-foreground hover:bg-accent sm:inline-flex"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                  {showProfileMenu && (
+                    <div className="absolute right-0 top-10 z-50 min-w-[160px] bg-background border border-border rounded-xl shadow-lg py-1">
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          setShowReportModal(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Flag className="h-4 w-4" />
+                        Report Profile
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {isOwnProfile ? (
                 <Button 
                   onClick={() => router.push('/edit-profile')}
@@ -513,12 +619,18 @@ function UserProfileContent() {
             </div>
 
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>
+              <button
+                onClick={() => router.push(`/${userUsername}/following`)}
+                className="hover:underline transition-colors"
+              >
                 <span className="font-semibold text-foreground">{followingCount}</span> Following
-              </span>
-              <span>
+              </button>
+              <button
+                onClick={() => router.push(`/${userUsername}/followers`)}
+                className="hover:underline transition-colors"
+              >
                 <span className="font-semibold text-foreground">{followersCount >= 1000 ? `${(followersCount / 1000).toFixed(1)}K` : followersCount}</span> Followers
-              </span>
+              </button>
             </div>
           </div>
 
@@ -687,9 +799,10 @@ function UserProfileContent() {
                           )}
                         </div>
                         {post.content && (
-                          <p className="mt-2 text-[15px] text-foreground leading-relaxed">
-                            {post.content}
-                          </p>
+                          <ClickableContent
+                            content={post.content}
+                            className="mt-2 text-[15px] text-foreground leading-relaxed whitespace-pre-wrap"
+                          />
                         )}
 
                         {post.media_urls && post.media_urls.length > 0 && (
@@ -715,12 +828,28 @@ function UserProfileContent() {
                             </svg>
                             {post.reposts_count}
                           </span>
-                          <span className="inline-flex items-center gap-1 hover:text-red-500 transition-colors">
-                            <svg className="h-4 w-4" fill={post.is_liked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 transition-colors ${
+                              post.is_liked
+                                ? 'text-red-500 hover:text-red-600'
+                                : 'text-muted-foreground hover:text-red-500'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleLike(post.id);
+                            }}
+                          >
+                            <svg className="h-4 w-4" fill={post.is_liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                              />
                             </svg>
                             {post.likes_count}
-                          </span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -739,6 +868,17 @@ function UserProfileContent() {
           onClose={handleCloseEdit}
           post={editingPost}
           onPostUpdated={handlePostUpdated}
+        />
+      )}
+
+      {/* Report Profile Modal */}
+      {profileData && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          targetType="profile"
+          targetId={profileData.id}
+          targetName={profileData.username}
         />
       )}
     </div>

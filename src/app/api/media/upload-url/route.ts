@@ -51,10 +51,14 @@ export async function POST(request: NextRequest) {
     const uniqueFileName = `${session.user.id}/${Date.now()}-${nanoid()}.${fileExtension}`;
 
     // Generate presigned URL with proper headers
+    const contentDisposition = `attachment; filename="${fileName}"`;
+
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: uniqueFileName,
       ContentType: fileType,
+      // Instruct browsers to download instead of inline preview when hitting the public URL
+      ContentDisposition: contentDisposition,
       Metadata: {
         userId: session.user.id,
         originalName: fileName,
@@ -73,6 +77,7 @@ export async function POST(request: NextRequest) {
       uploadUrl,
       publicUrl,
       fileName: uniqueFileName,
+      contentDisposition,
     });
 
   } catch (error) {

@@ -534,6 +534,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          target_type: 'message' | 'profile' | 'post';
+          target_message_id: string | null;
+          target_profile_id: string | null;
+          target_post_id: string | null;
+          reason_code: 'spam' | 'harassment' | 'hate_speech' | 'violence' | 'nudity' | 'misinformation' | 'impersonation' | 'copyright' | 'other';
+          reason_text: string | null;
+          status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          target_type: 'message' | 'profile' | 'post';
+          target_message_id?: string | null;
+          target_profile_id?: string | null;
+          target_post_id?: string | null;
+          reason_code: 'spam' | 'harassment' | 'hate_speech' | 'violence' | 'nudity' | 'misinformation' | 'impersonation' | 'copyright' | 'other';
+          reason_text?: string | null;
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          reporter_id?: string;
+          target_type?: 'message' | 'profile' | 'post';
+          target_message_id?: string | null;
+          target_profile_id?: string | null;
+          target_post_id?: string | null;
+          reason_code?: 'spam' | 'harassment' | 'hate_speech' | 'violence' | 'nudity' | 'misinformation' | 'impersonation' | 'copyright' | 'other';
+          reason_text?: string | null;
+          status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

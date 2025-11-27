@@ -91,53 +91,62 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
           </div>
         ) : (
           <div className="space-y-2">
-            {chats.map((chat) => (
-              <div
-                key={chat.id}
-                onClick={() => onSelect(chat.id)}
-                className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-accent/50 ${
-                  selectedId === chat.id ? 'bg-accent/70' : ''
-                }`}
-              >
-                <div className="relative">
-                  {chat.other_user.avatar_url ? (
-                    <img
-                      src={chat.other_user.avatar_url}
-                      alt={chat.other_user.display_name}
-                      className="h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                      {chat.other_user.display_name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {chat.other_user.is_verified && (
-                    <ShieldCheck className="absolute -bottom-1 -right-1 h-4 w-4 text-blue-400" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground truncate">{chat.other_user.display_name}</h3>
-                    <span className="text-xs text-muted-foreground">{formatTimestamp(chat.updated_at)}</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center space-x-2 min-w-0 flex-1">
-                      <p className="text-sm text-muted-foreground truncate">@{chat.other_user.username}</p>
-                      <ActivityStatus 
-                        isOnline={userActivities[chat.other_user.id]?.isOnline || false}
-                        lastSeen={userActivities[chat.other_user.id]?.lastSeen}
-                        className="flex-shrink-0"
+            {chats.map((chat) => {
+              const other = chat.other_user;
+              // If for some reason the API did not include other_user, skip this chat safely
+              if (!other) return null;
+
+              const displayName = other.display_name || 'User';
+              const username = other.username || 'user';
+
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => onSelect(chat.id)}
+                  className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-accent/50 ${
+                    selectedId === chat.id ? 'bg-accent/70' : ''
+                  }`}
+                >
+                  <div className="relative">
+                    {other.avatar_url ? (
+                      <img
+                        src={other.avatar_url}
+                        alt={displayName}
+                        className="h-12 w-12 rounded-full object-cover"
                       />
-                    </div>
-                    {chat.unread_count > 0 && (
-                      <span className="ml-2 bg-primary text-primary-foreground text-xs rounded-full px-2 py-1 min-w-[20px] text-center flex-shrink-0">
-                        {chat.unread_count > 99 ? '99+' : chat.unread_count}
-                      </span>
+                    ) : (
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {other.is_verified && (
+                      <ShieldCheck className="absolute -bottom-1 -right-1 h-4 w-4 text-blue-400" />
                     )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-foreground truncate">{displayName}</h3>
+                      <span className="text-xs text-muted-foreground">{formatTimestamp(chat.updated_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <p className="text-sm text-muted-foreground truncate">@{username}</p>
+                        <ActivityStatus 
+                          isOnline={userActivities[other.id]?.isOnline || false}
+                          lastSeen={userActivities[other.id]?.lastSeen}
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                      {chat.unread_count > 0 && (
+                        <span className="ml-2 bg-primary text-primary-foreground text-xs rounded-full px-2 py-1 min-w-[20px] text-center flex-shrink-0">
+                          {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

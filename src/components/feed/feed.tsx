@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, Loader2 } from 'lucide-react';
+import { ReportButton } from '@/components/report/report-button';
 import { CommentModal } from '@/components/post/comment-modal';
 import { ShareModal } from '@/components/post/share-modal';
 import { MediaDisplay } from '@/components/post/media-display';
@@ -13,6 +14,7 @@ import { EditPostModal } from '@/components/post/edit-post-modal';
 import { useNotifications } from '@/hooks/use-notifications';
 import { ClickableContent } from '@/components/ui/clickable-content';
 import { ClickableAvatar } from '@/components/ui/clickable-avatar';
+import { FeedSkeleton } from '@/components/ui/skeleton-loaders';
 
 interface User {
   id: string;
@@ -104,12 +106,6 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
 
       const data = await response.json();
       
-      console.log('Feed API response:', {
-        postsCount: data.posts?.length || 0,
-        posts: data.posts?.slice(0, 2), // Log first 2 posts for debugging
-        likedPostIds: data.likedPostIds?.length || 0,
-        repostedPostIds: data.repostedPostIds?.length || 0
-      });
       
       if (append) {
         setPosts(prev => [...prev, ...(data.posts || [])]);
@@ -411,11 +407,7 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-      </div>
-    );
+    return <FeedSkeleton count={5} />;
   }
 
   if (error) {
@@ -473,15 +465,6 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
         const isRepost = !!post.repost_of_id;
         const originalUser = post.reposted_from_user;
         
-        // Debug logging
-        if (isRepost) {
-          console.log('Repost detected:', {
-            postId: post.id,
-            repostOfId: post.repost_of_id,
-            originalUser: originalUser,
-            hasOriginalUser: !!originalUser
-          });
-        }
         
         // Get avatar URL - prioritize post user's avatar, then session avatar for own posts
         const postUserAvatar = post.user?.avatar_url;
@@ -519,7 +502,7 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
                       onClick={(e) => {
                         e.stopPropagation();
                         if (originalUser.username) {
-                          router.push(`/profile/${originalUser.username}`);
+                          router.push(`/${originalUser.username}`);
                         }
                       }}
                     >
@@ -573,7 +556,7 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                     {openDropdownId === post.id && (
-                      <div className="absolute right-0 top-8 bg-background border border-border rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                      <div className="absolute right-0 top-8 bg-background border border-border rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -598,9 +581,26 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
                     )}
                   </div>
                 ) : (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={(e) => handleDropdownToggle(post.id, e)}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                    {openDropdownId === post.id && (
+                      <div className="absolute right-0 top-8 bg-background border border-border rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
+                        <ReportButton
+                          targetType="post"
+                          targetId={post.id}
+                          targetName={username}
+                          variant="menu-item"
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -707,6 +707,14 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
               'Load More'
             )}
           </Button>
+        </div>
+      )}
+
+      {/* All caught up message */}
+      {!hasMore && posts.length > 0 && (
+        <div className="px-4 py-8 flex flex-col items-center justify-center text-center text-muted-foreground">
+          <div className="mb-2 text-sm font-medium uppercase tracking-wide text-xs">You are all caught up</div>
+          <p className="text-xs">No more posts to show right now. Check back later for new content.</p>
         </div>
       )}
 

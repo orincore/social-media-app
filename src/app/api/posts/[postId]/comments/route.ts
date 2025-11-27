@@ -37,8 +37,20 @@ export async function GET(
         );
       }
 
-      // Get user IDs and fetch user data
-      const userIds = [...new Set(rawComments?.map(c => c.user_id).filter(Boolean) || [])];
+      // Get reply IDs to fetch their nested replies
+      const replyIds = rawComments?.map(c => c.id) || [];
+      
+      // Fetch nested replies (replies to these replies)
+      const { data: nestedReplies } = await adminClient
+        .from('comments')
+        .select('*')
+        .in('reply_to_id', replyIds)
+        .order('created_at', { ascending: true });
+
+      // Get user IDs from both replies and nested replies
+      const replyUserIds = rawComments?.map(c => c.user_id).filter(Boolean) || [];
+      const nestedUserIds = nestedReplies?.map(r => r.user_id).filter(Boolean) || [];
+      const userIds = [...new Set([...replyUserIds, ...nestedUserIds])];
       let userMap = new Map<string, any>();
       
       if (userIds.length > 0) {
@@ -52,24 +64,37 @@ export async function GET(
         }
       }
 
-      // Build comments with user data
-      const comments = (rawComments || []).map(comment => ({
-        ...comment,
-        user: userMap.get(comment.user_id) || null,
-        replies: [],
-        hasMoreReplies: false
-      }));
+      // Build comments with user data and nested replies
+      const comments = (rawComments || []).map(comment => {
+        const commentNestedReplies = (nestedReplies || [])
+          .filter(r => r.reply_to_id === comment.id)
+          .slice(0, 3)
+          .map(reply => ({
+            ...reply,
+            user: userMap.get(reply.user_id) || null,
+            replies: [],
+            hasMoreReplies: false
+          }));
+
+        return {
+          ...comment,
+          user: userMap.get(comment.user_id) || null,
+          replies: commentNestedReplies,
+          hasMoreReplies: (comment.replies_count || 0) > 3
+        };
+      });
 
       // Get liked comment IDs for the current user
       let likedCommentIds: string[] = [];
       if (session?.user?.id) {
+        const allIds = comments.flatMap(c => [c.id, ...c.replies.map((r: any) => r.id)]);
         const { data: likes } = await supabase
           .from('likes')
-          .select('post_id')
+          .select('comment_id')
           .eq('user_id', session.user.id)
-          .in('post_id', comments.map(c => c.id));
+          .in('comment_id', allIds);
         
-        likedCommentIds = likes?.map(like => like.post_id).filter((id): id is string => Boolean(id)) || [];
+        likedCommentIds = likes?.map(like => like.comment_id).filter((id): id is string => Boolean(id)) || [];
       }
 
       // Check if there are more replies
@@ -141,15 +166,65 @@ export async function GET(
       console.log('Comments - Fetched users:', users?.length, 'Sample:', users?.[0]);
     }
 
-    // Build comments with user data and replies
+    // Fetch nested replies (replies to replies) - get all reply IDs first
+    const replyIds = allReplies?.map(r => r.id) || [];
+    let nestedRepliesMap = new Map<string, any[]>();
+    
+    if (replyIds.length > 0) {
+      const { data: nestedReplies } = await adminClient
+        .from('comments')
+        .select('*')
+        .in('reply_to_id', replyIds)
+        .order('created_at', { ascending: true });
+      
+      // Collect nested reply user IDs
+      const nestedUserIds = nestedReplies?.map(r => r.user_id).filter(Boolean) || [];
+      
+      // Fetch nested reply users if any new ones
+      if (nestedUserIds.length > 0) {
+        const newUserIds = nestedUserIds.filter(id => !userMap.has(id));
+        if (newUserIds.length > 0) {
+          const { data: nestedUsers } = await adminClient
+            .from('users')
+            .select('id, username, display_name, avatar_url, is_verified')
+            .in('id', newUserIds);
+          
+          if (nestedUsers) {
+            nestedUsers.forEach(u => userMap.set(u.id, u));
+          }
+        }
+      }
+      
+      // Group nested replies by parent reply ID
+      (nestedReplies || []).forEach(nr => {
+        const parentId = nr.reply_to_id as string;
+        if (!parentId) return;
+        if (!nestedRepliesMap.has(parentId)) {
+          nestedRepliesMap.set(parentId, []);
+        }
+        nestedRepliesMap.get(parentId)!.push({
+          ...nr,
+          user: userMap.get(nr.user_id) || null,
+          replies: [],
+          hasMoreReplies: false
+        });
+      });
+    }
+
+    // Build comments with user data and replies (including nested)
     const commentsWithReplies = (rawComments || []).map(comment => {
       const commentReplies = (allReplies || [])
         .filter(r => r.reply_to_id === comment.id)
         .slice(0, 3)
-        .map(reply => ({
-          ...reply,
-          user: userMap.get(reply.user_id) || null
-        }));
+        .map(reply => {
+          const replyNestedReplies = nestedRepliesMap.get(reply.id) || [];
+          return {
+            ...reply,
+            user: userMap.get(reply.user_id) || null,
+            replies: replyNestedReplies.slice(0, 3),
+            hasMoreReplies: (reply.replies_count || 0) > 3
+          };
+        });
 
       return {
         ...comment,
@@ -366,6 +441,54 @@ export async function POST(
           }
         }
       }
+    }
+
+    // Create mention notifications for @username mentions in the comment content
+    try {
+      const mentionMatches: string[] = content.match(/@[a-zA-Z0-9_.]+/g) || [];
+      const rawUsernames: string[] = mentionMatches
+        .map((m: string) => m.slice(1))
+        .filter((name): name is string => Boolean(name));
+
+      const lowerUsernames: string[] = rawUsernames.map((u: string) => u.toLowerCase());
+      const uniqueUsernames: string[] = Array.from(new Set<string>(lowerUsernames));
+
+      if (uniqueUsernames.length > 0) {
+        // Look up mentioned users by username
+        const { data: mentionedUsers, error: mentionedUsersError } = await adminClient
+          .from('users')
+          .select('id, username')
+          .in('username', uniqueUsernames);
+
+        if (mentionedUsersError) {
+          console.error('Error fetching mentioned users:', mentionedUsersError);
+        } else if (mentionedUsers && mentionedUsers.length > 0) {
+          const notifications = mentionedUsers
+            .filter((u) => u.id !== session!.user!.id)
+            .map((u) => ({
+              user_id: u.id,
+              actor_id: session!.user!.id,
+              type: 'mention' as const,
+              content: 'You were mentioned in a comment',
+              post_id: postId,
+              comment_id: comment.id,
+              is_read: false,
+              created_at: new Date().toISOString(),
+            }));
+
+          if (notifications.length > 0) {
+            const { error: mentionNotificationError } = await adminClient
+              .from('notifications')
+              .insert(notifications);
+
+            if (mentionNotificationError) {
+              console.error('Error creating mention notifications:', mentionNotificationError);
+            }
+          }
+        }
+      }
+    } catch (mentionError) {
+      console.error('Error handling comment mentions:', mentionError);
     }
 
     return NextResponse.json({ comment }, { status: 201 });

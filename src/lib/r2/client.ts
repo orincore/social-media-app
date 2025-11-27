@@ -34,7 +34,9 @@ export function getR2Client(): S3Client | null {
         accessKeyId: env.r2AccessKeyId!,
         secretAccessKey: env.r2SecretAccessKey!,
       },
-      forcePathStyle: false,
+      // Use path-style so host stays <account>.r2.cloudflarestorage.com and bucket is in the path.
+      // This avoids generating presigned URLs like media.<account>.r2... which can fail TLS.
+      forcePathStyle: true,
     });
   }
 
@@ -53,7 +55,7 @@ export const r2Client = isR2Configured
         accessKeyId: env.r2AccessKeyId!,
         secretAccessKey: env.r2SecretAccessKey!,
       },
-      forcePathStyle: false,
+      forcePathStyle: true,
     })
   : (null as unknown as S3Client); // Type assertion for backward compatibility
 

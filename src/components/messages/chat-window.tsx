@@ -4,17 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ActivityStatus } from './activity-status';
 import { useTypingActivity } from '@/hooks/use-typing-activity';
+import { useMediaUpload } from '@/hooks/use-media-upload';
 import {
   ShieldCheck,
-  PhoneCall,
-  Video,
   MoreHorizontal,
   Image as ImageIcon,
-  Smile,
-  Mic,
   SendHorizontal,
   ArrowLeft,
+  Flag,
 } from 'lucide-react';
+import { ReportModal } from '@/components/report/report-modal';
 
 interface Chat {
   id: string;
@@ -35,6 +34,7 @@ interface Message {
   chat_id: string;
   sender_id: string;
   content: string;
+  media_urls?: string[] | null;
   is_read: boolean;
   created_at: string;
   sender: {
@@ -50,7 +50,7 @@ interface ChatWindowProps {
   chat: Chat;
   messages: Message[];
   currentUserId: string;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, mediaUrls?: string[]) => void;
   onBack: () => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
@@ -62,11 +62,26 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
   const { userActivities } = useTypingActivity();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showProfileReportModal, setShowProfileReportModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadedMedia, isUploading, uploadProgress, uploadMedia, removeMedia, clearMedia, markAsPosted } = useMediaUpload();
+  const [overlayMediaUrl, setOverlayMediaUrl] = useState<string | null>(null);
+  const [overlayIsVideo, setOverlayIsVideo] = useState(false);
 
   const handleSend = () => {
-    if (!draft.trim()) return;
-    onSendMessage(draft);
+    const trimmed = draft.trim();
+    const mediaUrls = uploadedMedia.map((m) => m.url);
+    if (!trimmed && mediaUrls.length === 0) return;
+
+    onSendMessage(trimmed, mediaUrls.length > 0 ? mediaUrls : undefined);
     setDraft('');
+    if (mediaUrls.length > 0) {
+      markAsPosted();
+      clearMedia();
+    }
   };
 
   const formatTime = (timestamp: string) => {
@@ -97,6 +112,57 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
   useEffect(() => {
     scrollToBottom();
   }, []);
+
+  const handleMediaButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      await uploadMedia(files);
+    } catch (error) {
+      console.error('Chat media upload error:', error);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const openMediaOverlay = (url: string) => {
+    const isVideo = /\.(mp4|webm|mov)$/i.test((url.split('?')[0] || ''));
+    setOverlayIsVideo(isVideo);
+    setOverlayMediaUrl(url);
+  };
+
+  const closeMediaOverlay = () => {
+    setOverlayMediaUrl(null);
+    setOverlayIsVideo(false);
+  };
+
+  const handleDownloadMedia = () => {
+    if (!overlayMediaUrl) return;
+
+    try {
+      const link = document.createElement('a');
+      link.href = overlayMediaUrl;
+
+      const urlPath = (overlayMediaUrl.split('?')[0] || '').split('/');
+      const fallbackName = 'media';
+      const lastSegment = urlPath[urlPath.length - 1] || fallbackName;
+      link.download = lastSegment || fallbackName;
+      link.rel = 'noopener noreferrer';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download media', error);
+    }
+  };
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background lg:relative lg:inset-auto lg:h-full lg:rounded-3xl lg:border lg:border-border lg:bg-background/60 lg:backdrop-blur">
@@ -140,16 +206,38 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
           </div>
         </div>
 
-        <div className="flex items-center gap-1 lg:gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border hover:border-accent lg:h-10 lg:w-10">
-            <PhoneCall className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border hover:border-accent lg:h-10 lg:w-10">
-            <Video className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border hover:border-accent lg:h-10 lg:w-10">
+        <div className="relative flex items-center gap-1 lg:gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full border border-border hover:border-accent lg:h-10 lg:w-10"
+            onClick={() => setShowHeaderMenu((prev) => !prev)}
+          >
             <MoreHorizontal className="h-4 w-4" />
           </Button>
+          {showHeaderMenu && (
+            <div className="absolute right-0 top-10 z-50 min-w-[180px] rounded-xl border border-border bg-background shadow-lg py-1">
+              <button
+                className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent/60"
+                onClick={() => {
+                  setShowHeaderMenu(false);
+                  window.location.href = `/${chat.other_user.username}`;
+                }}
+              >
+                View profile
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                onClick={() => {
+                  setShowHeaderMenu(false);
+                  setShowProfileReportModal(true);
+                }}
+              >
+                <Flag className="h-4 w-4" />
+                Report profile
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -178,13 +266,27 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
           
           {messages.map((message) => {
             const isFromMe = message.sender_id === currentUserId;
+            const isHovered = hoveredMessageId === message.id;
             return (
               <div
                 key={message.id}
-                className={`flex ${
+                className={`flex items-end gap-1 ${
                   isFromMe ? 'justify-end' : 'justify-start'
                 }`}
+                onMouseEnter={() => setHoveredMessageId(message.id)}
+                onMouseLeave={() => setHoveredMessageId(null)}
               >
+                {/* Report button for received messages */}
+                {!isFromMe && isHovered && (
+                  <button
+                    onClick={() => setReportingMessageId(message.id)}
+                    className="p-1.5 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 animate-fade-in"
+                    style={{ opacity: isHovered ? 1 : 0 }}
+                    title="Report message"
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <div
                   className={`max-w-xs rounded-2xl px-4 py-2 ${
                     isFromMe
@@ -192,7 +294,45 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
                       : 'bg-card text-card-foreground border border-border shadow-sm'
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  {/* Render media if present */}
+                  {message.media_urls && message.media_urls.length > 0 && (
+                    <div className={`flex flex-wrap gap-1 ${message.content?.trim() ? 'mb-2' : ''}`}>
+                      {message.media_urls.map((url, idx) => {
+                        const isVideo = /\.(mp4|webm|mov)$/i.test((url.split('?')[0] || ''));
+                        return isVideo ? (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => openMediaOverlay(url)}
+                            className="overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/70"
+                          >
+                            <video
+                              src={url}
+                              className="max-w-full max-h-48 object-cover"
+                              muted
+                            />
+                          </button>
+                        ) : (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => openMediaOverlay(url)}
+                            className="overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/70"
+                          >
+                            <img
+                              src={url}
+                              alt="Media"
+                              className="max-w-full max-h-48 object-cover"
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Render text content if present */}
+                  {message.content?.trim() && (
+                    <p className="text-sm">{message.content}</p>
+                  )}
                   <p
                     className={`mt-1 text-xs ${
                       isFromMe ? 'text-white/70' : 'text-muted-foreground'
@@ -210,9 +350,68 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
         </div>
       </div>
 
+      {/* Report Modal */}
+      {reportingMessageId && (
+        <ReportModal
+          isOpen={!!reportingMessageId}
+          onClose={() => setReportingMessageId(null)}
+          targetType="message"
+          targetId={reportingMessageId}
+        />
+      )}
+
+      {/* Report Profile Modal */}
+      <ReportModal
+        isOpen={showProfileReportModal}
+        onClose={() => setShowProfileReportModal(false)}
+        targetType="profile"
+        targetId={chat.other_user.id}
+        targetName={chat.other_user.username}
+      />
+
       {/* Input */}
       <div className="border-t border-border p-4">
         <div className="rounded-2xl border border-border bg-muted/50 p-3">
+          {/* Hidden file input for chat media */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Media preview */}
+          {uploadedMedia.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {uploadedMedia.map((media) => (
+                <div
+                  key={media.id}
+                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-border bg-black/40"
+                >
+                  <button
+                    type="button"
+                    className="block h-full w-full"
+                    onClick={() => openMediaOverlay(media.url)}
+                  >
+                    {media.type === 'image' ? (
+                      <img src={media.url} alt="Attachment" className="h-full w-full object-cover" />
+                    ) : (
+                      <video src={media.url} className="h-full w-full object-cover" muted />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(media.id)}
+                    className="absolute top-1 right-1 rounded-full bg-black/60 px-1 text-[10px] text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -224,21 +423,26 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
           />
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-1 text-muted-foreground lg:gap-2">
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-accent lg:h-8 lg:w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full hover:bg-accent lg:h-8 lg:w-8"
+                onClick={handleMediaButtonClick}
+                disabled={isUploading}
+              >
                 <ImageIcon className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-accent lg:h-8 lg:w-8">
-                <Smile className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-accent lg:h-8 lg:w-8">
-                <Mic className="h-4 w-4" />
-              </Button>
+              {isUploading && (
+                <span className="text-xs text-muted-foreground">
+                  Uploading {Math.round(uploadProgress)}%
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 lg:gap-3">
               <span className="text-xs text-muted-foreground">{1000 - draft.length}</span>
               <Button
                 onClick={handleSend}
-                disabled={!draft.trim()}
+                disabled={(!draft.trim() && uploadedMedia.length === 0) || isUploading}
                 className="h-8 rounded-full bg-primary text-primary-foreground px-3.5 text-sm font-semibold shadow-lg disabled:cursor-not-allowed disabled:opacity-50 lg:h-9 lg:px-5"
               >
                 <SendHorizontal className="mr-1 h-4 w-4 lg:mr-2" />
@@ -248,6 +452,44 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
           </div>
         </div>
       </div>
+      {overlayMediaUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6">
+          <button
+            type="button"
+            onClick={closeMediaOverlay}
+            className="absolute right-4 top-4 rounded-full bg-black/70 px-3 py-1 text-sm text-white shadow-lg hover:bg-black"
+          >
+            Close
+          </button>
+          <div className="flex max-h-[90vh] max-w-3xl flex-col gap-4">
+            <div className="flex justify-between gap-2">
+              <span className="text-sm text-white/70">Media preview</span>
+              <button
+                type="button"
+                onClick={handleDownloadMedia}
+                className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black shadow-md hover:bg-white/90"
+              >
+                Download
+              </button>
+            </div>
+            <div className="flex items-center justify-center overflow-hidden rounded-2xl bg-black/60 p-2">
+              {overlayIsVideo ? (
+                <video
+                  src={overlayMediaUrl}
+                  controls
+                  className="max-h-[80vh] max-w-full rounded-xl"
+                />
+              ) : (
+                <img
+                  src={overlayMediaUrl}
+                  alt="Media preview"
+                  className="max-h-[80vh] max-w-full rounded-xl object-contain"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
