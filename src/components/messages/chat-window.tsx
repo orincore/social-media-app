@@ -12,6 +12,8 @@ import {
   SendHorizontal,
   ArrowLeft,
   Flag,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import { ReportModal } from '@/components/report/report-modal';
 
@@ -24,6 +26,7 @@ interface Chat {
     display_name: string;
     avatar_url: string | null;
     is_verified: boolean;
+    status?: string; // 'active' | 'banned' | 'suspended' | 'deleted'
   };
   unread_count: number;
   updated_at: string;
@@ -179,7 +182,15 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
         
         <div className="flex items-center space-x-3 flex-1 ml-4">
           <div className="relative">
-            {chat.other_user.avatar_url ? (
+            {chat.other_user.status === 'deleted' || chat.other_user.status === 'banned' || chat.other_user.status === 'suspended' ? (
+              <div className="h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
+                {chat.other_user.status === 'deleted' ? (
+                  <Trash2 className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-orange-400" />
+                )}
+              </div>
+            ) : chat.other_user.avatar_url ? (
               <img
                 src={chat.other_user.avatar_url}
                 alt={chat.other_user.display_name}
@@ -190,19 +201,33 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
                 {chat.other_user.display_name.charAt(0).toUpperCase()}
               </div>
             )}
-            {chat.other_user.is_verified && (
+            {chat.other_user.is_verified && !['deleted', 'banned', 'suspended'].includes(chat.other_user.status || '') && (
               <ShieldCheck className="absolute -bottom-1 -right-1 h-3 w-3 text-blue-400" />
             )}
           </div>
           <div>
-            <h2 className="font-semibold text-foreground">{chat.other_user.display_name}</h2>
-            <div className="flex items-center space-x-2">
-              <p className="text-sm text-muted-foreground">@{chat.other_user.username}</p>
-              <ActivityStatus 
-                isOnline={userActivities[chat.other_user.id]?.isOnline || false}
-                lastSeen={userActivities[chat.other_user.id]?.lastSeen}
-              />
-            </div>
+            {chat.other_user.status === 'deleted' ? (
+              <>
+                <h2 className="font-semibold text-gray-400">Deleted Account</h2>
+                <p className="text-sm text-gray-500">This account has been deleted</p>
+              </>
+            ) : chat.other_user.status === 'banned' || chat.other_user.status === 'suspended' ? (
+              <>
+                <h2 className="font-semibold text-orange-400">Suspended Account</h2>
+                <p className="text-sm text-gray-500">This account has been suspended</p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-semibold text-foreground">{chat.other_user.display_name}</h2>
+                <div className="flex items-center space-x-2">
+                  <p className="text-sm text-muted-foreground">@{chat.other_user.username}</p>
+                  <ActivityStatus 
+                    isOnline={userActivities[chat.other_user.id]?.isOnline || false}
+                    lastSeen={userActivities[chat.other_user.id]?.lastSeen}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -216,9 +241,9 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
             <MoreHorizontal className="h-4 w-4" />
           </Button>
           {showHeaderMenu && (
-            <div className="absolute right-0 top-10 z-50 min-w-[180px] rounded-xl border border-border bg-background shadow-lg py-1">
+            <div className="absolute right-0 top-10 z-50 min-w-[180px] rounded-xl border border-border bg-white dark:bg-gray-900 text-foreground dark:text-white shadow-xl py-1">
               <button
-                className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent/60"
+                className="w-full px-4 py-2.5 text-left text-sm text-text-primary dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                 onClick={() => {
                   setShowHeaderMenu(false);
                   window.location.href = `/${chat.other_user.username}`;
@@ -227,7 +252,7 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
                 View profile
               </button>
               <button
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/20"
                 onClick={() => {
                   setShowHeaderMenu(false);
                   setShowProfileReportModal(true);

@@ -20,12 +20,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Search users by username or display name
+    // Exclude deleted, banned, and suspended users from search results
     const { data: users, error } = await adminClient
       .from('users')
-      .select('id, username, display_name, avatar_url, is_verified')
+      .select('id, username, display_name, avatar_url, is_verified, status')
       .neq('id', session.user.id) // Exclude current user
       .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-      .limit(limit);
+      .or('status.is.null,status.eq.active') // Only show active users
+      .limit(limit) as { data: Array<{ id: string; username: string; display_name: string; avatar_url: string | null; is_verified: boolean; status?: string }> | null; error: any };
 
     if (error) {
       console.error('Error searching users:', error);

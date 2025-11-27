@@ -27,6 +27,24 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Check if user account is deleted or suspended
+    const userWithStatus = user as typeof user & { status?: string };
+    if (userWithStatus.status === 'deleted') {
+      return NextResponse.json({ 
+        error: 'Account deleted',
+        accountStatus: 'deleted',
+        message: 'This account has been deleted.'
+      }, { status: 410 }); // 410 Gone
+    }
+    
+    if (userWithStatus.status === 'banned' || userWithStatus.status === 'suspended') {
+      return NextResponse.json({ 
+        error: 'Account suspended',
+        accountStatus: 'suspended',
+        message: 'This account has been suspended for violating our Terms and Conditions.'
+      }, { status: 403 }); // 403 Forbidden
+    }
+
     // Check if current user is following this user (if logged in)
     let isFollowing = false;
     let followRequestPending = false;

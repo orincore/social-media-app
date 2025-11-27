@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, Loader2 } from 'lucide-react';
-import { ReportButton } from '@/components/report/report-button';
+import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, Loader2, Flag } from 'lucide-react';
+import { ReportModal } from '@/components/report/report-modal';
 import { CommentModal } from '@/components/post/comment-modal';
 import { ShareModal } from '@/components/post/share-modal';
 import { MediaDisplay } from '@/components/post/media-display';
@@ -71,6 +71,8 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
   const [sharePostId, setSharePostId] = useState<string>('');
   const [sharePostContent, setSharePostContent] = useState<string>('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [reportPostAuthor, setReportPostAuthor] = useState<string | undefined>(undefined);
 
   const fetchPosts = useCallback(async (pageNum: number, append: boolean = false) => {
     try {
@@ -592,12 +594,18 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
                     </Button>
                     {openDropdownId === post.id && (
                       <div className="absolute right-0 top-8 bg-background border border-border rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
-                        <ReportButton
-                          targetType="post"
-                          targetId={post.id}
-                          targetName={username}
-                          variant="menu-item"
-                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDropdownId(null);
+                            setReportPostId(post.id);
+                            setReportPostAuthor(post.user.username);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Flag className="h-4 w-4" />
+                          Report post
+                        </button>
                       </div>
                     )}
                   </div>
@@ -725,6 +733,17 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
           isOpen={isCommentModalOpen}
           onClose={handleCloseComments}
           onCommentAdded={handleCommentAdded}
+        />
+      )}
+
+      {/* Report Post Modal */}
+      {reportPostId && (
+        <ReportModal
+          isOpen={!!reportPostId}
+          onClose={() => setReportPostId(null)}
+          targetType="post"
+          targetId={reportPostId}
+          targetName={reportPostAuthor}
         />
       )}
 

@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
       chat.participants.forEach((id: string) => allParticipantIds.add(id));
     });
 
+    // Include status field to show suspended/deleted accounts in chat
     const { data: users } = await adminClient
       .from('users')
-      .select('id, username, display_name, avatar_url, is_verified')
-      .in('id', Array.from(allParticipantIds));
+      .select('id, username, display_name, avatar_url, is_verified, status')
+      .in('id', Array.from(allParticipantIds)) as { data: Array<{ id: string; username: string; display_name: string; avatar_url: string | null; is_verified: boolean; status?: string }> | null };
 
     const userMap = (users || []).reduce((acc, user) => {
       acc[user.id] = user;

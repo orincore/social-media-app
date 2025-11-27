@@ -30,14 +30,16 @@ export async function GET(request: NextRequest) {
     followingIds.push(session.user.id);
 
     // Get suggested users (users not being followed, ordered by followers count or posts count)
+    // Exclude deleted, banned, and suspended users
     let query = adminClient
       .from('users')
-      .select('id, username, display_name, avatar_url, is_verified, bio, followers_count, posts_count')
+      .select('id, username, display_name, avatar_url, is_verified, bio, followers_count, posts_count, status')
       .not('id', 'in', `(${followingIds.join(',')})`)
+      .or('status.is.null,status.eq.active') // Only show active users or users with no status set
       .order('followers_count', { ascending: false })
       .limit(limit);
 
-    const { data: users, error } = await query;
+    const { data: users, error } = await query as { data: Array<{ id: string; username: string; display_name: string; avatar_url: string | null; is_verified: boolean; bio: string | null; followers_count: number; posts_count: number; status?: string }> | null; error: any };
 
     if (error) {
       console.error('Error fetching user suggestions:', error);

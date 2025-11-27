@@ -109,10 +109,10 @@ export function ReportModal({ isOpen, onClose, targetType, targetId, targetName 
         onClick={handleClose}
       />
       
-      {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-background rounded-2xl border border-border shadow-xl overflow-hidden">
+      {/* Modal card */}
+      <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-900 rounded-2xl border border-border shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-white/95 dark:bg-gray-900/95">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             <h2 className="text-lg font-semibold text-foreground">Report {getTargetLabel()}</h2>
@@ -128,7 +128,7 @@ export function ReportModal({ isOpen, onClose, targetType, targetId, targetName 
         </div>
 
         {/* Content */}
-        <div className="p-4 max-h-[60vh] overflow-y-auto">
+        <div className="p-4 max-h-[60vh] overflow-y-auto bg-white dark:bg-gray-900">
           {isSuccess ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />

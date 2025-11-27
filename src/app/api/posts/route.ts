@@ -199,18 +199,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter out posts from private profiles that the user doesn't follow
+    // Filter out posts from private, deleted, or suspended profiles
     let filteredPosts = rawPosts || [];
     
     if (filteredPosts.length > 0) {
       // Get all unique user IDs from posts
       const postUserIds = Array.from(new Set(filteredPosts.map(p => p.user_id).filter(Boolean)));
       
-      // Fetch user privacy settings
+      // Fetch user privacy settings and status
+      // Cast to include status field which may have been added via migration
+      const { data: usersWithStatus } = await adminClient
+        .from('users')
+        .select('id, is_private, status')
+        .in('id', postUserIds) as { data: Array<{ id: string; is_private: boolean; status?: string }> | null };
+      
+      // Filter out posts from deleted or suspended/banned users
+      const restrictedUserIds = new Set(
+        (usersWithStatus || []).filter(u => 
+          u.status === 'deleted' || 
+          u.status === 'banned' || 
+          u.status === 'suspended'
+        ).map(u => u.id)
+      );
+      
+      // Remove posts from restricted users
+      filteredPosts = filteredPosts.filter(post => !restrictedUserIds.has(post.user_id));
+      
+      // Fetch user privacy settings (only for remaining posts)
       const { data: usersWithPrivacy } = await adminClient
         .from('users')
         .select('id, is_private')
-        .in('id', postUserIds);
+        .in('id', filteredPosts.map(p => p.user_id).filter(Boolean));
       
       const privateUserIds = new Set(
         usersWithPrivacy?.filter(u => u.is_private).map(u => u.id) || []

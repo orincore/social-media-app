@@ -42,7 +42,12 @@ export function ReportButton({
     return (
       <>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={(e) => {
+            // Prevent parent click handlers (like card navigation) from firing
+            e.preventDefault();
+            e.stopPropagation();
+            setIsModalOpen(true);
+          }}
           className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 transition-colors ${className}`}
         >
           <Flag className="h-4 w-4" />

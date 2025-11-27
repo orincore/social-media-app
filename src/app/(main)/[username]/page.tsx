@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal, Lock, UserCheck, UserX, Clock, Flag } from 'lucide-react';
+import { MessageCircle, MapPin, Link as LinkIcon, CalendarDays, MoreHorizontal, Lock, UserCheck, UserX, Clock, Flag, AlertTriangle, Trash2, ArrowLeft } from 'lucide-react';
 import { ReportModal } from '@/components/report/report-modal';
 import { MediaDisplay } from '@/components/post/media-display';
 import { EditPostModal } from '@/components/post/edit-post-modal';
@@ -85,6 +85,8 @@ function UserProfileContent() {
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<'active' | 'suspended' | 'deleted' | null>(null);
+  const [accountStatusMessage, setAccountStatusMessage] = useState<string>('');
 
   const currentUserId = data?.user?.id;
   const isOwnProfile = profileData?.id === currentUserId;
@@ -98,11 +100,21 @@ function UserProfileContent() {
     const fetchProfile = async () => {
       try {
         const response = await fetch(`/api/users/${username}`);
+        const data = await response.json();
+        
         if (response.ok) {
-          const data = await response.json();
           setProfileData(data.user);
           setIsFollowing(data.isFollowing || false);
           setFollowRequestPending(data.followRequestPending || false);
+          setAccountStatus('active');
+        } else if (response.status === 410) {
+          // Account deleted
+          setAccountStatus('deleted');
+          setAccountStatusMessage(data.message || 'This account has been deleted.');
+        } else if (response.status === 403) {
+          // Account suspended
+          setAccountStatus('suspended');
+          setAccountStatusMessage(data.message || 'This account has been suspended.');
         } else if (response.status === 404) {
           // User not found, redirect to 404 or home
           redirect('/home');
@@ -409,6 +421,72 @@ function UserProfileContent() {
 
   if (status === 'unauthenticated') {
     redirect('/auth/signin');
+  }
+
+  // Show suspended account page
+  if (accountStatus === 'suspended') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <button
+            onClick={() => router.back()}
+            className="absolute top-4 left-4 p-2 rounded-full hover:bg-accent transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+          </button>
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-orange-500/10 flex items-center justify-center">
+            <AlertTriangle className="w-10 h-10 text-orange-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-3">Account Suspended</h1>
+          <p className="text-muted-foreground mb-4">
+            {accountStatusMessage}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            @{username}
+          </p>
+          <Button
+            onClick={() => router.push('/home')}
+            className="mt-6"
+            variant="outline"
+          >
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show deleted account page
+  if (accountStatus === 'deleted') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <button
+            onClick={() => router.back()}
+            className="absolute top-4 left-4 p-2 rounded-full hover:bg-accent transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+          </button>
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-500/10 flex items-center justify-center">
+            <Trash2 className="w-10 h-10 text-gray-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-3">Account Deleted</h1>
+          <p className="text-muted-foreground mb-4">
+            {accountStatusMessage}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            @{username}
+          </p>
+          <Button
+            onClick={() => router.push('/home')}
+            className="mt-6"
+            variant="outline"
+          >
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (!profileData) {
