@@ -19,18 +19,28 @@ export async function POST(request: NextRequest) {
 
     const { fileName, fileType, fileSize } = await request.json();
 
-    // Validate file type
+    // Validate file type - include HEIC/HEIF for iOS devices
     const allowedTypes = [
       'image/jpeg',
       'image/png', 
       'image/gif',
       'image/webp',
+      'image/heic',
+      'image/heif',
       'video/mp4',
       'video/webm',
-      'video/quicktime'
+      'video/quicktime',
+      'video/mov',
     ];
 
-    if (!allowedTypes.includes(fileType)) {
+    // Also check by extension for iOS which sometimes sends wrong MIME types
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'mp4', 'webm', 'mov'];
+    
+    const isAllowedType = allowedTypes.includes(fileType) || 
+                          (ext && allowedExtensions.includes(ext));
+
+    if (!isAllowedType) {
       return NextResponse.json(
         { error: 'File type not allowed' },
         { status: 400 }
