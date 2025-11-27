@@ -139,22 +139,9 @@ export function useMediaUpload(): UseMediaUploadReturn {
       // Compress images client-side before upload to save storage and bandwidth
       const fileArray = await Promise.all(originalFiles.map((file) => compressImage(file)));
 
-      let uploadResults;
-      
-      // On mobile devices, use direct server upload (more reliable than presigned URLs)
-      // Presigned URL uploads can fail on mobile due to CORS, network issues, or browser restrictions
-      if (isMobileDevice()) {
-        console.log('Mobile device detected, using direct server upload');
-        uploadResults = await uploadDirectToServer(fileArray);
-      } else {
-        // On desktop, try presigned URL first, fall back to direct upload if it fails
-        try {
-          uploadResults = await uploadToR2(fileArray);
-        } catch (presignedError) {
-          console.warn('Presigned URL upload failed, falling back to direct upload:', presignedError);
-          uploadResults = await uploadDirectToServer(fileArray);
-        }
-      }
+      // Use Supabase Storage upload (most reliable across all platforms)
+      // This avoids TLS issues with R2 on AWS Amplify and works on all mobile devices
+      const uploadResults = await uploadToSupabase(fileArray);
 
       setUploadedMedia(prev => [...prev, ...uploadResults]);
     } catch (error) {
@@ -166,90 +153,21 @@ export function useMediaUpload(): UseMediaUploadReturn {
     }
   }, [uploadedMedia.length]);
 
-  const uploadToR2 = async (fileArray: File[]) => {
-    const uploadPromises = fileArray.map(async (file, index) => {
-      // Get presigned URL
-      const response = await fetch('/api/media/upload-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to get upload URL');
-      }
-
-      const { uploadUrl, publicUrl, fileName, contentDisposition } = await response.json();
-
-      // Upload file directly to R2 with timeout and retry
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      try {
-        const uploadResponse = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-            ...(contentDisposition ? { 'Content-Disposition': contentDisposition as string } : {}),
-          },
-          signal: controller.signal,
-          // Disable credentials to avoid CORS preflight issues on mobile
-          credentials: 'omit',
-          mode: 'cors',
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload file to R2: ${uploadResponse.status}`);
-        }
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          throw new Error('Upload timed out');
-        }
-        throw error;
-      }
-
-      // Update progress
-      const progress = ((index + 1) / fileArray.length) * 100;
-      setUploadProgress(progress);
-
-      return {
-        id: `${Date.now()}-${index}`,
-        url: publicUrl,
-        type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
-        file,
-        fileName,
-      };
-    });
-
-    return await Promise.all(uploadPromises);
-  };
-
-  // Direct server upload - more reliable for mobile devices
-  const uploadDirectToServer = async (fileArray: File[]) => {
+  // Upload to Supabase Storage - reliable across all platforms including AWS Amplify
+  const uploadToSupabase = async (fileArray: File[]) => {
     const formData = new FormData();
     fileArray.forEach(file => {
       formData.append('files', file);
     });
 
-    // Use AbortController for timeout on mobile (90 seconds for larger files)
+    // Use AbortController for timeout (90 seconds for larger files)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
       setUploadProgress(10); // Show initial progress
       
-      const response = await fetch('/api/media/direct-upload', {
+      const response = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
         signal: controller.signal,
@@ -265,7 +183,6 @@ export function useMediaUpload(): UseMediaUploadReturn {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch {
-          // If we can't parse the error, use status text
           errorMessage = `Upload failed: ${response.statusText || response.status}`;
         }
         throw new Error(errorMessage);
@@ -289,7 +206,6 @@ export function useMediaUpload(): UseMediaUploadReturn {
     } catch (error: any) {
       clearTimeout(timeoutId);
       
-      // Handle specific error types
       if (error.name === 'AbortError') {
         throw new Error('Upload timed out. Please try with a smaller file or check your connection.');
       }
@@ -298,7 +214,6 @@ export function useMediaUpload(): UseMediaUploadReturn {
         throw new Error('Network error. Please check your internet connection and try again.');
       }
       
-      // Re-throw with the error message
       throw new Error(error.message || 'Failed to upload files. Please try again.');
     }
   };

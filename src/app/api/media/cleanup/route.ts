@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { r2Client, R2_BUCKET_NAME } from '@/lib/r2/client';
+import { adminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,13 +23,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const deletionResults = [];
+    const filesToDelete: string[] = [];
 
     for (const mediaUrl of mediaUrls) {
       try {
         // Extract the file key from the URL
         const url = new URL(mediaUrl);
-        const fileKey = url.pathname.substring(1); // Remove leading slash
+        let fileKey: string;
+        
+        if (url.pathname.includes('/storage/v1/object/public/media/')) {
+          // Supabase Storage URL
+          fileKey = url.pathname.split('/storage/v1/object/public/media/')[1];
+        } else {
+          // R2 or other URL format
+          fileKey = url.pathname.substring(1);
+        }
 
         // Verify the file belongs to the current user (security check)
         if (!fileKey.startsWith(session.user.id + '/')) {
@@ -38,25 +45,26 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Delete from R2 bucket
-        const deleteCommand = new DeleteObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: fileKey,
-        });
-
-        await r2Client.send(deleteCommand);
-        deletionResults.push({ url: mediaUrl, status: 'deleted' });
-        
+        filesToDelete.push(fileKey);
       } catch (error) {
-        console.error(`Failed to delete media: ${mediaUrl}`, error);
-        deletionResults.push({ url: mediaUrl, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' });
+        console.error(`Failed to parse media URL: ${mediaUrl}`, error);
+      }
+    }
+
+    // Batch delete from Supabase Storage
+    if (filesToDelete.length > 0) {
+      const { error } = await adminClient.storage
+        .from('media')
+        .remove(filesToDelete);
+
+      if (error) {
+        console.error('Error deleting files from Supabase Storage:', error);
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Cleaned up ${deletionResults.filter(r => r.status === 'deleted').length} media files`,
-      results: deletionResults,
+      message: `Cleaned up ${filesToDelete.length} media files`,
     });
 
   } catch (error) {

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { r2Client, R2_BUCKET_NAME } from '@/lib/r2/client';
+import { adminClient } from '@/lib/supabase/admin';
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -25,9 +24,26 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Extract the file key from the URL
-    // URL format: https://pub-7cdefa14faf6454ea30945af925888a8.r2.dev/userId/timestamp-nanoid.ext
-    const url = new URL(mediaUrl);
-    const fileKey = url.pathname.substring(1); // Remove leading slash
+    // Supabase URL format: https://<project>.supabase.co/storage/v1/object/public/media/userId/timestamp-nanoid.ext
+    // R2 URL format: https://pub-xxx.r2.dev/userId/timestamp-nanoid.ext
+    let fileKey: string;
+    
+    try {
+      const url = new URL(mediaUrl);
+      
+      if (url.pathname.includes('/storage/v1/object/public/media/')) {
+        // Supabase Storage URL
+        fileKey = url.pathname.split('/storage/v1/object/public/media/')[1];
+      } else {
+        // R2 or other URL format
+        fileKey = url.pathname.substring(1); // Remove leading slash
+      }
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid media URL' },
+        { status: 400 }
+      );
+    }
 
     // Verify the file belongs to the current user (security check)
     if (!fileKey.startsWith(session.user.id + '/')) {
@@ -37,13 +53,21 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete from R2 bucket
-    const deleteCommand = new DeleteObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: fileKey,
-    });
+    // Delete from Supabase Storage
+    const { error } = await adminClient.storage
+      .from('media')
+      .remove([fileKey]);
 
-    await r2Client.send(deleteCommand);
+    if (error) {
+      console.error('Error deleting from Supabase Storage:', error);
+      // Don't fail if file doesn't exist
+      if (!error.message?.includes('not found')) {
+        return NextResponse.json(
+          { error: 'Failed to delete media' },
+          { status: 500 }
+        );
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -51,7 +75,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error deleting media from R2:', error);
+    console.error('Error deleting media:', error);
     return NextResponse.json(
       { error: 'Failed to delete media' },
       { status: 500 }

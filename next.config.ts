@@ -59,6 +59,10 @@ const nextConfig: NextConfig = {
       '@supabase/supabase-js',
       'react-easy-crop',
     ],
+    // Increase server actions body size limit for file uploads (50MB)
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
   },
 
   // Turbopack configuration (Next.js 16+ uses Turbopack by default)
