@@ -30,13 +30,26 @@ function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 6000
   return true;
 }
 
+// Helper to get client IP (ignoring localhost in dev)
+function getClientIp(request: NextRequest): string | null {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const ip = forwarded.split(',')[0]?.trim();
+    if (ip && ip !== '::1' && ip !== '127.0.0.1') return ip;
+  }
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp && realIp !== '::1' && realIp !== '127.0.0.1') return realIp;
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get client IP for rate limiting
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 
-             request.headers.get('x-real-ip') ?? 
-             'unknown';
+  // Get client IP for rate limiting and geo-blocking
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0] ??
+    request.headers.get('x-real-ip') ??
+    'unknown';
 
   // Apply rate limiting to API routes
   if (pathname.startsWith('/api/')) {
@@ -54,6 +67,58 @@ export async function middleware(request: NextRequest) {
           },
         }
       );
+    }
+  }
+
+  // Allow the blocked page itself to render without redirect loops
+  if (pathname.startsWith('/blocked')) {
+    return NextResponse.next();
+  }
+
+  // Geo-blocking: restrict access from specific countries
+  const geoCookie = request.cookies.get('geo-block-status');
+  const isBlockedCookie = geoCookie?.value === 'blocked';
+
+  if (isBlockedCookie) {
+    // Already determined as blocked: redirect everything to /blocked
+    const blockedUrl = new URL('/blocked', request.url);
+    return NextResponse.redirect(blockedUrl);
+  }
+
+  // Only perform GeoIP lookup if we haven't decided yet
+  const geoServiceUrl = process.env.GEOIP_SERVICE_URL;
+  if (geoServiceUrl) {
+    const clientIp = getClientIp(request);
+
+    if (clientIp) {
+      try {
+        const url = new URL(geoServiceUrl);
+        url.searchParams.set('ip', clientIp);
+
+        const geoRes = await fetch(url.toString(), { cache: 'no-store' });
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          const countryRaw: string | undefined =
+            geoData.country || geoData.country_name || geoData.countryCode;
+          const country = countryRaw?.toLowerCase();
+
+          const blockedCountries = ['pakistan', 'bangladesh', 'afghanistan', 'iran'];
+
+          if (country && blockedCountries.includes(country)) {
+            const blockedUrl = new URL('/blocked', request.url);
+            const response = NextResponse.redirect(blockedUrl);
+            response.cookies.set('geo-block-status', 'blocked', {
+              path: '/',
+              maxAge: 60 * 60 * 24, // 1 day
+              sameSite: 'lax',
+            });
+            return response;
+          }
+        }
+      } catch (error) {
+        // Fail open on GeoIP errors; do not block legit users due to service issues
+        console.error('Geo-block lookup failed:', error);
+      }
     }
   }
 
