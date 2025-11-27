@@ -242,11 +242,13 @@ export function useMediaUpload(): UseMediaUploadReturn {
       formData.append('files', file);
     });
 
-    // Use AbortController for timeout on mobile (60 seconds)
+    // Use AbortController for timeout on mobile (90 seconds for larger files)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
+      setUploadProgress(10); // Show initial progress
+      
       const response = await fetch('/api/media/direct-upload', {
         method: 'POST',
         body: formData,
@@ -254,17 +256,30 @@ export function useMediaUpload(): UseMediaUploadReturn {
       });
 
       clearTimeout(timeoutId);
+      
+      setUploadProgress(80); // Show progress after upload completes
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload files');
+        let errorMessage = 'Failed to upload files';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If we can't parse the error, use status text
+          errorMessage = `Upload failed: ${response.statusText || response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const { files } = await response.json();
+      const data = await response.json();
+      
+      if (!data.files || data.files.length === 0) {
+        throw new Error('No files were uploaded. Please try again.');
+      }
       
       setUploadProgress(100);
 
-      return files.map((file: any, index: number) => ({
+      return data.files.map((file: any, index: number) => ({
         id: `${Date.now()}-${index}`,
         url: file.url,
         type: file.type as 'image' | 'video',
@@ -273,10 +288,18 @@ export function useMediaUpload(): UseMediaUploadReturn {
       }));
     } catch (error: any) {
       clearTimeout(timeoutId);
+      
+      // Handle specific error types
       if (error.name === 'AbortError') {
-        throw new Error('Upload timed out. Please try again with a smaller file or better connection.');
+        throw new Error('Upload timed out. Please try with a smaller file or check your connection.');
       }
-      throw error;
+      
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      
+      // Re-throw with the error message
+      throw new Error(error.message || 'Failed to upload files. Please try again.');
     }
   };
 
