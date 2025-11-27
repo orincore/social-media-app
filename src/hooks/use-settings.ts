@@ -237,6 +237,13 @@ export function useUserSessions() {
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
+      // Best-effort: ensure current device session is recorded before fetching
+      try {
+        await fetch('/api/settings/sessions/track', { method: 'POST' });
+      } catch {
+        // Ignore tracking errors; we still try to load any existing sessions
+      }
+
       const response = await fetch('/api/settings/sessions');
       
       if (!response.ok) {
