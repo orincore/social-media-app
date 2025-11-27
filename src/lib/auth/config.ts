@@ -121,7 +121,54 @@ export const authOptions: NextAuthOptions = {
             .single();
 
           if (userData) {
-            const typedUser = userData as Tables<'users'>;
+            const typedUser = userData as Tables<'users'> & {
+              status?: string;
+              banned_at?: string;
+              ban_reason?: string;
+              ban_expires_at?: string;
+              deleted_at?: string;
+              deleted_reason?: string;
+            };
+            
+            // Check if user account is deleted (soft delete)
+            if (typedUser.status === 'deleted' || typedUser.deleted_at) {
+              session.user = {
+                ...session.user,
+                id: typedUser.id,
+                deleted: true,
+                deleted_reason: typedUser.deleted_reason || 'Your account was deleted due to violation of our Terms and Conditions.',
+              } as typeof session.user & { deleted: boolean; deleted_reason: string };
+              return session;
+            }
+            
+            // Check if user is banned
+            if (typedUser.status === 'banned') {
+              // Check if ban has expired
+              if (typedUser.ban_expires_at) {
+                const banExpiry = new Date(typedUser.ban_expires_at);
+                if (banExpiry > new Date()) {
+                  // Ban is still active - mark session as banned
+                  session.user = {
+                    ...session.user,
+                    id: typedUser.id,
+                    banned: true,
+                    ban_reason: typedUser.ban_reason || 'Your account has been suspended.',
+                    ban_expires_at: typedUser.ban_expires_at,
+                  } as typeof session.user & { banned: boolean; ban_reason: string; ban_expires_at?: string };
+                  return session;
+                }
+                // Ban has expired - user can continue (status will be updated on next action)
+              } else {
+                // Permanent ban
+                session.user = {
+                  ...session.user,
+                  id: typedUser.id,
+                  banned: true,
+                  ban_reason: typedUser.ban_reason || 'Your account has been permanently suspended.',
+                } as typeof session.user & { banned: boolean; ban_reason: string };
+                return session;
+              }
+            }
             
             // Check which required fields are missing
             const missingFields: string[] = [];

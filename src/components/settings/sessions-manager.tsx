@@ -35,14 +35,17 @@ export function SessionsManager({ className = '' }: SessionsManagerProps) {
     return 'Unknown Device';
   };
 
-  const getLocationString = (locationInfo: any, ipAddress: string) => {
+  const getLocationString = (locationInfo: any) => {
     if (locationInfo?.city && locationInfo?.country) {
       return `${locationInfo.city}, ${locationInfo.country}`;
     }
     if (locationInfo?.country) {
       return locationInfo.country;
     }
-    return locationInfo?.city || ipAddress || 'Unknown location';
+    if (locationInfo?.city) {
+      return locationInfo.city;
+    }
+    return 'Unknown location';
   };
 
   const formatLastActive = (lastActive: string) => {
@@ -117,7 +120,7 @@ export function SessionsManager({ className = '' }: SessionsManagerProps) {
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    <span>{getLocationString(session.locationInfo, session.ipAddress)}</span>
+                    <span>{getLocationString(session.locationInfo)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />

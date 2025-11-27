@@ -2,8 +2,9 @@
 
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { BanCheckProvider } from "@/components/providers/ban-check-provider";
 
 // Optimized QueryClient configuration for performance
 function createQueryClient() {
@@ -46,7 +47,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       refetchOnWindowFocus={true}
     >
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <BanCheckProvider>{children}</BanCheckProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </SessionProvider>
   );

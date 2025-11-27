@@ -129,7 +129,27 @@ export async function middleware(request: NextRequest) {
     '/auth/signup',
     '/auth/error',
     '/api/auth',
+    // Admin API uses its own auth system; do not gate it on NextAuth
+    '/api/admin',
     '/api/debug/env',
+    // Admin panel uses its own auth system; do not gate it on NextAuth
+    '/admin',
+    '/admin/login',
+    // Public read access to posts and profiles (actions still require auth in the API handlers)
+    '/api/posts',
+    '/api/profile',
+    '/api/users',
+    '/api/hashtag',
+    '/api/recommendations',
+    // Public pages
+    '/home',
+    '/explore',
+    '/trending',
+    '/post',
+    '/hashtag',
+    // Banned and deleted users pages
+    '/banned',
+    '/account-deleted',
   ];
 
   const isPublicRoute = publicRoutes.some(route =>
