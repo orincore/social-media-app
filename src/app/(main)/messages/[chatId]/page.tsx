@@ -108,6 +108,23 @@ function ChatContent() {
     }
   }, [pagination, fetchMessages]);
 
+  // Delete/unsend a message
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    try {
+      const response = await fetch(`/api/messages/${chatId}/${messageId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete message');
+      }
+
+      setMessages(prev => prev.filter((m) => m.id !== messageId));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
+  }, [chatId]);
+
   // Handle back navigation
   const handleBack = useCallback(() => {
     window.history.back();
@@ -188,6 +205,7 @@ function ChatContent() {
           onLoadMore={handleLoadMore}
           hasMore={pagination.hasMore}
           isLoadingMore={pagination.loading}
+          onDeleteMessage={handleDeleteMessage}
         />
       </div>
     </div>

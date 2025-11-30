@@ -102,6 +102,67 @@ export async function GET(
   }
 }
 
+// DELETE - Delete an entire chat and all its messages
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ conversationId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { conversationId: chatId } = await params;
+
+    if (!chatId) {
+      return NextResponse.json({ error: 'Chat ID is required' }, { status: 400 });
+    }
+
+    // Verify user is participant in this chat
+    const { data: chat, error: chatError } = await adminClient
+      .from('chats')
+      .select('participants')
+      .eq('id', chatId)
+      .single();
+
+    if (chatError || !chat) {
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    }
+
+    if (!chat.participants.includes(session.user.id)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Delete all messages in this chat
+    const { error: messagesError } = await adminClient
+      .from('messages')
+      .delete()
+      .eq('chat_id', chatId);
+
+    if (messagesError) {
+      console.error('Error deleting chat messages:', messagesError);
+      return NextResponse.json({ error: 'Failed to delete chat messages' }, { status: 500 });
+    }
+
+    // Delete the chat itself
+    const { error: chatDeleteError } = await adminClient
+      .from('chats')
+      .delete()
+      .eq('id', chatId);
+
+    if (chatDeleteError) {
+      console.error('Error deleting chat:', chatDeleteError);
+      return NextResponse.json({ error: 'Failed to delete chat' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error('Error in DELETE /api/messages/[conversationId]:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // POST - Send a message to this chat
 export async function POST(
   request: NextRequest,

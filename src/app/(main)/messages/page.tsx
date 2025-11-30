@@ -64,6 +64,22 @@ function MessagesContent() {
     }
   }, [fetchChats, router]);
 
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    try {
+      const response = await fetch(`/api/messages/${chatId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete chat');
+      }
+
+      setChats(prev => prev.filter((chat) => chat.id !== chatId));
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  }, []);
+
   // Load chats on mount
   useEffect(() => {
     if (session?.user?.id) {
@@ -105,6 +121,7 @@ function MessagesContent() {
           selectedId={null}
           onSelect={handleSelectConversation}
           onStartNewChat={startNewChat}
+          onDeleteChat={handleDeleteChat}
         />
       </div>
     </div>

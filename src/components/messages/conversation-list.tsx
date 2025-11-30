@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PencilLine, Search, ShieldCheck, MessageCircle } from 'lucide-react';
+import { PencilLine, Search, ShieldCheck, MessageCircle, Trash2, MoreHorizontal } from 'lucide-react';
 import { NewMessageModal } from './new-message-modal';
 import { ActivityStatus } from './activity-status';
 import { useTypingActivity } from '@/hooks/use-typing-activity';
@@ -26,6 +26,7 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (chatId: string) => void;
   onStartNewChat: (userId: string) => void;
+  onDeleteChat?: (chatId: string) => void;
 }
 
 const safetyTips = [
@@ -34,8 +35,9 @@ const safetyTips = [
   'Report harassment directly from the conversation.',
 ];
 
-export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }: ConversationListProps) {
+export function ConversationList({ chats, selectedId, onSelect, onStartNewChat, onDeleteChat }: ConversationListProps) {
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
+  const [activeChatMenuId, setActiveChatMenuId] = useState<string | null>(null);
   const { userActivities } = useTypingActivity();
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -102,8 +104,7 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
               return (
                 <div
                   key={chat.id}
-                  onClick={() => onSelect(chat.id)}
-                  className={`group flex cursor-pointer items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-accent/50 ${
+                  className={`group flex items-center space-x-3 rounded-2xl p-3 transition-all duration-200 hover:bg-accent/50 ${
                     selectedId === chat.id ? 'bg-accent/70' : ''
                   }`}
                 >
@@ -123,10 +124,50 @@ export function ConversationList({ chats, selectedId, onSelect, onStartNewChat }
                       <ShieldCheck className="absolute -bottom-1 -right-1 h-4 w-4 text-blue-400" />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => onSelect(chat.id)}
+                  >
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-foreground truncate">{displayName}</h3>
-                      <span className="text-xs text-muted-foreground">{formatTimestamp(chat.updated_at)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{formatTimestamp(chat.updated_at)}</span>
+                        {onDeleteChat && (
+                          <div className="relative flex items-center ml-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveChatMenuId((prev) => (prev === chat.id ? null : chat.id));
+                              }}
+                              className="rounded-full p-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                              aria-label="Chat options"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                            {activeChatMenuId === chat.id && (
+                              <div className="absolute right-1 top-7 z-40">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500 text-white hover:bg-red-600 rounded-full shadow-lg"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const confirmed = typeof window !== 'undefined'
+                                      ? window.confirm('Delete this chat? This will remove the entire conversation.')
+                                      : true;
+                                    if (!confirmed) return;
+                                    setActiveChatMenuId(null);
+                                    onDeleteChat(chat.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <span className="whitespace-nowrap">Delete chat</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <div className="flex items-center space-x-2 min-w-0 flex-1">

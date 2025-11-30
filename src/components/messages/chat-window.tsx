@@ -58,15 +58,17 @@ interface ChatWindowProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBack, onLoadMore, hasMore, isLoadingMore }: ChatWindowProps) {
+export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBack, onLoadMore, hasMore, isLoadingMore, onDeleteMessage }: ChatWindowProps) {
   const [draft, setDraft] = useState('');
   const { userActivities } = useTypingActivity();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [reportingMessageId, setReportingMessageId] = useState<string | null>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showProfileReportModal, setShowProfileReportModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -292,6 +294,7 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
           {messages.map((message) => {
             const isFromMe = message.sender_id === currentUserId;
             const isHovered = hoveredMessageId === message.id;
+            const isMenuOpen = activeMessageMenuId === message.id;
             return (
               <div
                 key={message.id}
@@ -301,24 +304,14 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
                 onMouseEnter={() => setHoveredMessageId(message.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
               >
-                {/* Report button for received messages */}
-                {!isFromMe && isHovered && (
-                  <button
-                    onClick={() => setReportingMessageId(message.id)}
-                    className="p-1.5 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 animate-fade-in"
-                    style={{ opacity: isHovered ? 1 : 0 }}
-                    title="Report message"
+                <div className="relative flex items-end gap-1">
+                  <div
+                    className={`max-w-xs rounded-2xl px-4 py-2 ${
+                      isFromMe
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'bg-card text-card-foreground border border-border shadow-sm'
+                    }`}
                   >
-                    <Flag className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <div
-                  className={`max-w-xs rounded-2xl px-4 py-2 ${
-                    isFromMe
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                      : 'bg-card text-card-foreground border border-border shadow-sm'
-                  }`}
-                >
                   {/* Render media if present */}
                   {message.media_urls && message.media_urls.length > 0 && (
                     <div className={`flex flex-wrap gap-1 ${message.content?.trim() ? 'mb-2' : ''}`}>
@@ -365,6 +358,60 @@ export function ChatWindow({ chat, messages, currentUserId, onSendMessage, onBac
                   >
                     {formatTime(message.created_at)}
                   </p>
+                  </div>
+
+                  {/* 3-dots menu for actions (mobile & desktop friendly) */}
+                  <div className="relative flex items-center">
+                    <button
+                      type="button"
+                      className={`ml-1 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ${
+                        isHovered ? 'opacity-100' : 'opacity-70'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMessageMenuId((prev) => (prev === message.id ? null : message.id));
+                      }}
+                      aria-label="Message options"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                    {isMenuOpen && (
+                      <div className="absolute right-0 top-8 z-40 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-1">
+                        {/* Report option for received messages */}
+                        {!isFromMe && (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
+                            onClick={() => {
+                              setActiveMessageMenuId(null);
+                              setReportingMessageId(message.id);
+                            }}
+                          >
+                            <Flag className="h-3.5 w-3.5" />
+                            <span>Report message</span>
+                          </button>
+                        )}
+                        {/* Delete option for own messages */}
+                        {isFromMe && onDeleteMessage && (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
+                            onClick={() => {
+                              const confirmed = typeof window !== 'undefined'
+                                ? window.confirm('Delete this message for everyone?')
+                                : true;
+                              if (!confirmed) return;
+                              setActiveMessageMenuId(null);
+                              onDeleteMessage(message.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete message</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

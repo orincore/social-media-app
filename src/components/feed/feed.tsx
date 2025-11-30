@@ -540,10 +540,13 @@ export function Feed({ hashtag, refreshTrigger, feedType = 'foryou' }: FeedProps
                   </span>
                 <span className="text-gray-500">·</span>
                 <span className="text-gray-500 hover:underline cursor-pointer">{formatDate(post.created_at)}</span>
-                {post.is_edited && (
+                {post.is_edited && post.edited_at && (
                   <>
                     <span className="text-gray-500">·</span>
-                    <span className="text-gray-500 text-xs">Edited</span>
+                    <span className="text-gray-500 text-xs">
+                      Edited 
+                      <span className="ml-1">{formatDate(post.edited_at)}</span>
+                    </span>
                   </>
                 )}
                 <div className="flex-1" />
