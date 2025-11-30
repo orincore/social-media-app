@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Heart, MessageCircle, MoreHorizontal, Share, Trash2 } from 'lucide-react';
 import { ClickableContent } from '@/components/ui/clickable-content';
-import { ClickableAvatar } from '@/components/ui/clickable-avatar';
 
 interface User {
   id: string;
@@ -36,6 +36,9 @@ interface CommentThreadProps {
   onReply: (comment: Comment) => void;
   onLike: (commentId: string) => void;
   onLoadMoreReplies: (commentId: string) => void;
+  onDelete: (commentId: string) => void;
+  /** true when the current viewer is the post owner and can moderate all comments */
+  canPostOwnerDeleteAll: boolean;
   shouldShowReplies?: boolean;
   formatRelativeDate: (date: string) => string;
 }
@@ -46,14 +49,23 @@ export function CommentThread({
   onReply,
   onLike,
   onLoadMoreReplies,
+  onDelete,
+  canPostOwnerDeleteAll,
   shouldShowReplies,
   formatRelativeDate,
 }: CommentThreadProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [showReplies, setShowReplies] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  const isOwnComment = session?.user?.id === comment.user_id;
+  const currentUserId = session?.user?.id;
+  const currentUsername = (session?.user as { username?: string } | undefined)?.username;
+
+  const isOwnComment =
+    (!!currentUserId && (comment.user_id === currentUserId || comment.user?.id === currentUserId)) ||
+    (!!currentUsername && comment.user?.username === currentUsername);
+  const canDelete = isOwnComment || canPostOwnerDeleteAll;
   const displayName = comment.user?.display_name || (isOwnComment ? session?.user?.name || 'You' : 'Unknown');
   const username = comment.user?.username || (isOwnComment ? 'you' : 'unknown');
   const avatarUrl = comment.user?.avatar_url || (isOwnComment ? session?.user?.image : null);
@@ -98,24 +110,54 @@ export function CommentThread({
           
           {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Header */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span 
-                className="font-bold text-primary hover:underline cursor-pointer"
-                onClick={() => router.push(`/${username}`)}
-              >
-                {displayName}
-              </span>
-              {comment.user?.is_verified && (
-                <div className="flex items-center justify-center w-4 h-4 bg-blue-500 rounded-full">
-                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+            {/* Header + More menu */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span 
+                  className="font-bold text-primary hover:underline cursor-pointer"
+                  onClick={() => router.push(`/${username}`)}
+                >
+                  {displayName}
+                </span>
+                {comment.user?.is_verified && (
+                  <div className="flex items-center justify-center w-4 h-4 bg-blue-500 rounded-full">
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                )}
+                <span className="text-tertiary text-sm">@{username}</span>
+                <span className="text-quaternary text-sm">·</span>
+                <span className="text-tertiary text-sm">{formatRelativeDate(comment.created_at)}</span>
+              </div>
+
+              {canDelete && (
+                <div className="relative ml-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full hover:bg-accent"
+                    onClick={() => setIsMenuOpen((prev) => !prev)}
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                  {isMenuOpen && (
+                    <div className="absolute right-0 mt-1 z-20 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-1">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onDelete(comment.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-              <span className="text-tertiary text-sm">@{username}</span>
-              <span className="text-quaternary text-sm">·</span>
-              <span className="text-tertiary text-sm">{formatRelativeDate(comment.created_at)}</span>
             </div>
             
             {/* Comment text */}
@@ -187,6 +229,8 @@ export function CommentThread({
               onLoadMoreReplies={onLoadMoreReplies}
               formatRelativeDate={formatRelativeDate}
               depth={1}
+              onDelete={onDelete}
+              canPostOwnerDeleteAll={canPostOwnerDeleteAll}
             />
           ))}
         </div>
@@ -215,8 +259,10 @@ interface ReplyItemProps {
   onReply: (comment: Comment) => void;
   onLike: (commentId: string) => void;
   onLoadMoreReplies: (commentId: string) => void;
+  onDelete: (commentId: string) => void;
   formatRelativeDate: (date: string) => string;
   depth?: number;
+  canPostOwnerDeleteAll: boolean;
 }
 
 function ReplyItem({
@@ -229,12 +275,21 @@ function ReplyItem({
   onLoadMoreReplies,
   formatRelativeDate,
   depth = 1,
+  onDelete,
+  canPostOwnerDeleteAll,
 }: ReplyItemProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [showNestedReplies, setShowNestedReplies] = useState(false);
+  const [isReplyMenuOpen, setIsReplyMenuOpen] = useState(false);
   
-  const isOwnReply = session?.user?.id === reply.user_id;
+  const currentUserId = session?.user?.id;
+  const currentUsername = (session?.user as { username?: string } | undefined)?.username;
+
+  const isOwnReply =
+    (!!currentUserId && (reply.user_id === currentUserId || reply.user?.id === currentUserId)) ||
+    (!!currentUsername && reply.user?.username === currentUsername);
+  const canDelete = isOwnReply || canPostOwnerDeleteAll;
   const displayName = reply.user?.display_name || (isOwnReply ? session?.user?.name || 'You' : 'Unknown');
   const username = reply.user?.username || (isOwnReply ? 'you' : 'unknown');
   const avatarUrl = reply.user?.avatar_url || (isOwnReply ? session?.user?.image : null);
@@ -268,24 +323,54 @@ function ReplyItem({
         
         {/* Reply Content */}
         <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-center gap-1.5 flex-wrap text-sm">
-            <span 
-              className="font-bold text-primary hover:underline cursor-pointer"
-              onClick={() => router.push(`/${username}`)}
-            >
-              {displayName}
-            </span>
-            {reply.user?.is_verified && (
-              <div className="flex items-center justify-center w-3.5 h-3.5 bg-blue-500 rounded-full">
-                <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          {/* Header + More menu */}
+          <div className="flex items-start justify-between gap-2 text-sm">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span 
+                className="font-bold text-primary hover:underline cursor-pointer"
+                onClick={() => router.push(`/${username}`)}
+              >
+                {displayName}
+              </span>
+              {reply.user?.is_verified && (
+                <div className="flex items-center justify-center w-3.5 h-3.5 bg-blue-500 rounded-full">
+                  <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              )}
+              <span className="text-tertiary">@{username}</span>
+              <span className="text-quaternary">·</span>
+              <span className="text-tertiary">{formatRelativeDate(reply.created_at)}</span>
+            </div>
+
+            {canDelete && (
+              <div className="relative ml-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-accent"
+                  onClick={() => setIsReplyMenuOpen((prev) => !prev)}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+                {isReplyMenuOpen && (
+                  <div className="absolute right-0 mt-1 z-20 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-1">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                      onClick={() => {
+                        setIsReplyMenuOpen(false);
+                        onDelete(reply.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            <span className="text-tertiary">@{username}</span>
-            <span className="text-quaternary">·</span>
-            <span className="text-tertiary">{formatRelativeDate(reply.created_at)}</span>
           </div>
           
           {/* Replying to indicator */}
@@ -352,6 +437,8 @@ function ReplyItem({
               onLoadMoreReplies={onLoadMoreReplies}
               formatRelativeDate={formatRelativeDate}
               depth={depth + 1}
+              onDelete={onDelete}
+              canPostOwnerDeleteAll={canPostOwnerDeleteAll}
             />
           ))}
         </div>

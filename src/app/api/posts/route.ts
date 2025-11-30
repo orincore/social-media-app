@@ -521,8 +521,16 @@ export async function POST(request: NextRequest) {
       // No need for truncation since API validation already limits to 1000 chars
       
       // Ensure content is not empty after cleaning
-      if (finalContent.trim().length === 0) {
-        finalContent = 'Post content'; // Fallback content
+      // Only apply a visible fallback when there is NO media; for media posts,
+      // it's fine for content to become empty after cleaning.
+      if (finalContent.trim().length === 0 && (!mediaUrls || mediaUrls.length === 0)) {
+        finalContent = 'Post content'; // Fallback content for text-only posts
+      }
+      
+      // If there is media and content becomes empty after cleaning, allow it:
+      // the database constraint should only enforce content for posts without media.
+      if (finalContent.trim().length === 0 && mediaUrls && mediaUrls.length > 0) {
+        finalContent = '';
       }
     }
 

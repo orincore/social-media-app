@@ -12,6 +12,7 @@ import { ReplyInput } from '@/components/post/reply-input';
 import { CommentThread } from '@/components/post/comment-thread';
 import { MediaDisplay } from '@/components/post/media-display';
 import { ClickableContent } from '@/components/ui/clickable-content';
+import { EditPostModal } from '@/components/post/edit-post-modal';
 
 interface User {
   id: string;
@@ -33,6 +34,8 @@ interface Post {
   replies_count: number;
   views_count: number;
   created_at: string;
+  is_edited?: boolean;
+  edited_at?: string | null;
   user: User | null;
 }
 
@@ -76,6 +79,7 @@ export default function PostDetailPage() {
   
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Fetch post details
   const fetchPost = useCallback(async () => {
@@ -155,6 +159,43 @@ export default function PostDetailPage() {
       setPage(nextPage);
       fetchComments(nextPage, true);
     }
+  };
+
+  const handleDeletePost = async () => {
+    if (!post) return;
+
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm('Delete this post? This action cannot be undone.')
+      : true;
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete post');
+      }
+
+      router.back();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
+
+  const handleEditPostOpen = () => {
+    if (!post) return;
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditPostClose = () => {
+    setIsEditModalOpen(false);
+  };
+
+  const handlePostUpdated = (updatedPost: Post) => {
+    setPost(updatedPost);
   };
 
   const loadMoreReplies = useCallback(async (commentId: string) => {
@@ -346,6 +387,45 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!session?.user?.id) return;
+
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm('Delete this comment? This action cannot be undone.')
+      : true;
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete comment');
+      }
+
+      const data = await response.json();
+
+      if (data?.deletedCount && post) {
+        setPost((prev) =>
+          prev
+            ? {
+                ...prev,
+                replies_count: Math.max(0, prev.replies_count - data.deletedCount),
+              }
+            : prev,
+        );
+      }
+
+      // Refresh comments from first page to ensure tree and counts are correct
+      setPage(1);
+      await fetchComments(1, false);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -447,7 +527,13 @@ export default function PostDetailPage() {
     );
   }
 
-  const isOwnPost = session?.user?.id === post.user_id;
+  const currentUserId = session?.user?.id;
+  const currentUsername = (session?.user as { username?: string } | undefined)?.username;
+
+  const isOwnPost =
+    (!!currentUserId && (post.user_id === currentUserId || post.user?.id === currentUserId)) ||
+    (!!currentUsername && post.user?.username === currentUsername);
+
   const displayName = post.user?.display_name || (isOwnPost ? session?.user?.name || 'You' : 'Unknown');
   const username = post.user?.username || (isOwnPost ? 'you' : 'unknown');
   const avatarUrl = post.user?.avatar_url || (isOwnPost ? session?.user?.image : null) || null;
@@ -462,9 +548,12 @@ export default function PostDetailPage() {
           username={username}
           avatarUrl={avatarUrl}
           showReportMenu={!isOwnPost}
+          isOwnPost={isOwnPost}
           isHeaderMenuOpen={isHeaderMenuOpen}
           onToggleMenu={() => setIsHeaderMenuOpen((prev) => !prev)}
           postId={post.id}
+          onEditPost={handleEditPostOpen}
+          onDeletePost={handleDeletePost}
         />
 
         {/* Post Content */}
@@ -484,9 +573,18 @@ export default function PostDetailPage() {
             </div>
           )}
 
-          {/* Timestamp & Views */}
-          <div className="flex items-center gap-2 text-tertiary text-sm px-4 py-2">
+          {/* Timestamp, Edited, & Views */}
+          <div className="flex flex-wrap items-center gap-2 text-tertiary text-sm px-4 py-2">
             <time>{formatDate(post.created_at)}</time>
+            {post.is_edited && post.edited_at && (
+              <>
+                <span>·</span>
+                <span className="text-tertiary">
+                  Edited 
+                  <span className="ml-1 text-secondary">{formatRelativeDate(post.edited_at)}</span>
+                </span>
+              </>
+            )}
             <span>·</span>
             <span className="font-semibold text-secondary">{formatCount(post.views_count)}</span>
             <span>Views</span>
@@ -539,6 +637,8 @@ export default function PostDetailPage() {
                   onReply={setReplyingTo}
                   onLike={handleCommentLike}
                   onLoadMoreReplies={loadMoreReplies}
+                  onDelete={handleDeleteComment}
+                  canPostOwnerDeleteAll={isOwnPost}
                   formatRelativeDate={formatRelativeDate}
                 />
               ))}
@@ -575,6 +675,24 @@ export default function PostDetailPage() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
       />
+
+      {/* Edit Post Modal */}
+      {post && post.user && (
+        <EditPostModal
+          isOpen={isEditModalOpen}
+          onClose={handleEditPostClose}
+          post={{
+            id: post.id,
+            content: post.content,
+            user: {
+              display_name: displayName,
+              username,
+              avatar_url: avatarUrl,
+            },
+          }}
+          onPostUpdated={handlePostUpdated}
+        />
+      )}
     </div>
   );
 }

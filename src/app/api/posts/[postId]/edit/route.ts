@@ -49,7 +49,9 @@ export async function PUT(
     const hashtags = content.match(/#\w+/g)?.map((tag: string) => tag.slice(1).toLowerCase()) || [];
     const mentions = content.match(/@\w+/g)?.map((mention: string) => mention.slice(1).toLowerCase()) || [];
 
-    // Update the post
+    // Update the post, marking it as edited and setting edited_at/updated_at
+    const now = new Date().toISOString();
+
     const { data: updatedPost, error: updateError } = await adminClient
       .from('posts')
       .update({
@@ -57,8 +59,8 @@ export async function PUT(
         hashtags: hashtags.length > 0 ? hashtags : null,
         mentions: mentions.length > 0 ? mentions : null,
         is_edited: true,
-        edited_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        edited_at: now,
+        updated_at: now,
       })
       .eq('id', postId)
       .select(`

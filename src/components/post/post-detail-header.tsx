@@ -20,12 +20,27 @@ interface PostDetailHeaderProps {
   username: string;
   avatarUrl: string | null;
   showReportMenu?: boolean;
+  isOwnPost?: boolean;
   isHeaderMenuOpen?: boolean;
   onToggleMenu?: () => void;
   postId?: string;
+  onEditPost?: () => void;
+  onDeletePost?: () => void;
 }
 
-export function PostDetailHeader({ user, displayName, username, avatarUrl, showReportMenu, isHeaderMenuOpen, onToggleMenu, postId }: PostDetailHeaderProps) {
+export function PostDetailHeader({
+  user,
+  displayName,
+  username,
+  avatarUrl,
+  showReportMenu,
+  isOwnPost,
+  isHeaderMenuOpen,
+  onToggleMenu,
+  postId,
+  onEditPost,
+  onDeletePost,
+}: PostDetailHeaderProps) {
   const router = useRouter();
   const avatarInitial = (displayName?.charAt(0) || 'U').toUpperCase();
 
@@ -83,7 +98,7 @@ export function PostDetailHeader({ user, displayName, username, avatarUrl, showR
             </div>
           </div>
           
-          {showReportMenu && onToggleMenu && postId ? (
+          {onToggleMenu && postId && (
             <div className="relative">
               <Button 
                 variant="ghost" 
@@ -94,24 +109,47 @@ export function PostDetailHeader({ user, displayName, username, avatarUrl, showR
                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
               </Button>
               {isHeaderMenuOpen && (
-                <div className="absolute right-0 top-9 z-20 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-1">
-                  <ReportButton
-                    targetType="post"
-                    targetId={postId}
-                    targetName={username}
-                    variant="menu-item"
-                  />
+                <div className="absolute right-0 top-9 z-20 min-w-[180px] rounded-xl border border-border bg-background shadow-lg py-1">
+                  {isOwnPost ? (
+                    <>
+                      {onEditPost && (
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
+                          onClick={() => {
+                            onToggleMenu?.();
+                            onEditPost();
+                          }}
+                        >
+                          Edit post
+                        </button>
+                      )}
+                      {onDeletePost && (
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-accent"
+                          onClick={() => {
+                            onToggleMenu?.();
+                            onDeletePost();
+                          }}
+                        >
+                          Delete post
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    showReportMenu && (
+                      <ReportButton
+                        targetType="post"
+                        targetId={postId}
+                        targetName={username}
+                        variant="menu-item"
+                      />
+                    )
+                  )}
                 </div>
               )}
             </div>
-          ) : (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 hover:bg-accent rounded-full"
-            >
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-            </Button>
           )}
         </div>
       </div>
