@@ -31,7 +31,7 @@ export default function AccountDeletedPage() {
             please contact our support team. Account restoration is reviewed on a case-by-case basis.
           </p>
           <a
-            href="mailto:support@socialpulse.app?subject=Account%20Restoration%20Request"
+            href="mailto:support@sociobook.in?subject=Account%20Restoration%20Request"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-sm font-medium text-white transition-colors"
           >
             <Mail className="w-4 h-4" />

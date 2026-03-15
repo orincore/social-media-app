@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@layer base {
+  *, *::before, *::after {
+    border-color: rgb(210 210 210);
+    border-width: 0;
+  }
+
+  [data-theme="dark"] *, [data-theme="dark"] *::before, [data-theme="dark"] *::after {
+    border-color: rgb(55 55 55);
+  }
+}
+
 :root {
   /* default to light theme tokens */
   --background: 255 255 255;      /* white */
@@ -10,8 +21,8 @@
   --muted-foreground: 90 90 90;   /* dark gray */
   --accent: 235 235 235;          /* neutral gray accent */
   --accent-foreground: 0 0 0;     /* black */
-  --border: 220 220 220;          /* gray border */
-  --input: 220 220 220;           /* gray input */
+  --border: 210 210 210;          /* light grey border */
+  --input: 210 210 210;           /* light grey input */
   --ring: 0 0 0;                  /* black focus ring */
   
   /* Text hierarchy colors */
@@ -32,8 +43,8 @@
   --muted-foreground: 90 90 90;
   --accent: 235 235 235;
   --accent-foreground: 0 0 0;
-  --border: 220 220 220;
-  --input: 220 220 220;
+  --border: 210 210 210;
+  --input: 210 210 210;
   --ring: 0 0 0;
   
   /* Light theme text hierarchy */
@@ -54,9 +65,9 @@
   --muted-foreground: 180 180 180;
   --accent: 20 20 20;
   --accent-foreground: 255 255 255;
-  /* Lighten borders/inputs slightly for a softer look on dark backgrounds */
-  --border: 70 70 70;
-  --input: 70 70 70;
+  /* Light grey borders on dark backgrounds */
+  --border: 55 55 55;
+  --input: 55 55 55;
   --ring: 255 255 255;
   
   /* Dark theme text hierarchy */

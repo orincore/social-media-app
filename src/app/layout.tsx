@@ -9,8 +9,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Social Media App",
-  description: "A modern social media platform built with Next.js",
+  title: "Sociobook.in - Social Media Website",
+  description: "Connect with friends, share your moments, and discover what's happening around you.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

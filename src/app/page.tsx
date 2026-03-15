@@ -7,72 +7,62 @@ import {
   MessageCircle, 
   Users, 
   Globe,
-  Zap,
   Heart,
   TrendingUp,
-  Lock,
-  Eye,
-  Megaphone,
-  Scale,
+  Image,
+  Bell,
+  Bookmark,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Smile
 } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 
 const coreFeatures = [
   {
     icon: MessageCircle,
-    title: 'Free Expression',
-    description: 'Share thoughts, opinions, and engage in meaningful conversations without censorship of genuine discussions.',
+    title: 'Share Your Thoughts',
+    description: 'Post what\'s on your mind, share moments, and start conversations with people who care.',
     gradient: 'from-blue-500 to-cyan-500'
   },
   {
-    icon: ShieldCheck,
-    title: 'Safe Community',
-    description: 'Strict moderation against harmful content with permanent bans for violent, abusive, or threatening behavior.',
-    gradient: 'from-green-500 to-emerald-500'
+    icon: Heart,
+    title: 'Connect with People',
+    description: 'Follow friends, family, and creators. Like, comment, and repost content you love.',
+    gradient: 'from-pink-500 to-rose-500'
   },
   {
     icon: TrendingUp,
     title: 'Trending Topics',
-    description: 'Discover what\'s happening with hashtags, trending algorithms, and structured topic discovery.',
+    description: 'Stay in the loop with what\'s trending. Explore hashtags and join the conversations everyone\'s talking about.',
     gradient: 'from-purple-500 to-pink-500'
   },
   {
-    icon: Globe,
-    title: 'Global Conversations',
-    description: 'Engage in discussions about politics, environment, social justice, business, and public welfare.',
-    gradient: 'from-orange-500 to-red-500'
+    icon: Image,
+    title: 'Photos & Videos',
+    description: 'Share your best moments with photos and videos. Your story, your way.',
+    gradient: 'from-orange-500 to-yellow-500'
   },
   {
-    icon: Zap,
-    title: 'Lightning Fast',
-    description: 'Built with Next.js, Supabase realtime, and Redis caching for instant, smooth interactions.',
-    gradient: 'from-yellow-500 to-orange-500'
+    icon: Bell,
+    title: 'Real-time Notifications',
+    description: 'Never miss a like, comment, or follow. Stay connected with instant notifications.',
+    gradient: 'from-green-500 to-emerald-500'
   },
   {
     icon: Users,
-    title: 'Modern Social',
-    description: 'Posts, reposts, quote posts, DMs, notifications, profiles - everything you expect from modern social media.',
+    title: 'Grow Your Community',
+    description: 'Build your following, discover new people, and be part of a vibrant social community.',
     gradient: 'from-indigo-500 to-purple-500'
   }
 ];
 
-const impactAreas = [
-  { icon: Scale, label: 'Politics & Governance', color: 'text-blue-500 dark:text-blue-400' },
-  { icon: Globe, label: 'Environment & Climate', color: 'text-green-500 dark:text-green-400' },
-  { icon: Heart, label: 'Social Justice', color: 'text-red-500 dark:text-red-400' },
-  { icon: TrendingUp, label: 'Business & Economy', color: 'text-yellow-500 dark:text-yellow-400' },
-  { icon: Megaphone, label: 'Activism & Awareness', color: 'text-purple-500 dark:text-purple-400' },
-  { icon: Eye, label: 'Transparency & Corruption', color: 'text-cyan-500 dark:text-cyan-400' }
-];
-
 const stats = [
-  { label: 'Open Discussions', value: '∞', desc: 'No limits on genuine conversation' },
-  { label: 'Zero Tolerance', value: '0%', desc: 'For harassment and abuse' },
-  { label: 'Real-time', value: '<100ms', desc: 'Lightning-fast interactions' },
-  { label: 'Global Reach', value: '24/7', desc: 'Always-on community' }
+  { label: 'Posts Shared', value: '1M+', desc: 'And counting every day' },
+  { label: 'Active Users', value: '50K+', desc: 'Growing community' },
+  { label: 'Connections Made', value: '500K+', desc: 'Friendships formed' },
+  { label: 'Always Online', value: '24/7', desc: 'Never miss a moment' }
 ];
 
 export default function LandingPage() {
@@ -83,21 +73,19 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background text-foreground overflow-hidden transition-colors duration-300">
       {/* Hero Section */}
       <header className="relative">
-        {/* Background Effects */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-transparent dark:from-blue-600/20 dark:via-purple-600/20" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_rgba(59,130,246,0.15)_0%,_transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,_rgba(59,130,246,0.3)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,_rgba(168,85,247,0.1)_0%,_transparent_50%)] dark:bg-[radial-gradient(circle_at_70%_80%,_rgba(168,85,247,0.2)_0%,_transparent_50%)]" />
-        
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_rgba(59,130,246,0.15)_0%,_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,_rgba(168,85,247,0.1)_0%,_transparent_50%)]" />
+
         {/* Navigation */}
         <nav className="relative z-10 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-white" />
+              <Smile className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-foreground">Social Pulse</span>
+            <span className="text-xl font-bold text-foreground">Sociobook.in</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* Theme Switcher */}
             <button
               onClick={() => {
                 if (theme === 'system') setTheme('light');
@@ -122,21 +110,21 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 lg:py-32">
           <div className="text-center space-y-8">
             <div className="inline-flex items-center px-4 py-2 bg-foreground/5 backdrop-blur-sm border border-border rounded-full text-sm font-medium text-foreground">
-              <Megaphone className="w-4 h-4 mr-2 text-blue-500" />
-              Where meaningful conversations happen
+              <Heart className="w-4 h-4 mr-2 text-pink-500" />
+              Your social world, all in one place
             </div>
-            
+
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight text-foreground">
-              Express freely,
+              Connect, share &
               <br />
-              <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
-                engage safely
+              <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                belong
               </span>
             </h1>
-            
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              An open, safe, and modern social platform where people can freely express impactful thoughts, 
-              discover trending topics, and engage in meaningful conversations about what matters most.
+
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              Sociobook.in is where you share life's moments, follow the people you love, 
+              and discover conversations that matter to you.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -144,19 +132,19 @@ export default function LandingPage() {
                 href="/auth/signin"
                 className="group inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-semibold text-lg text-white shadow-2xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300"
               >
-                Join the conversation
+                Join Sociobook.in
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
-                href="#features"
+                href="/auth/signin"
                 className="inline-flex items-center justify-center px-8 py-4 border border-border rounded-2xl font-semibold text-lg hover:bg-accent transition-all duration-300 text-foreground"
               >
-                Explore features
+                Sign in
               </Link>
             </div>
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-20">
             {stats.map((stat, index) => (
               <div
@@ -178,10 +166,10 @@ export default function LandingPage() {
         <section id="features" className="max-w-7xl mx-auto px-6 py-20">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-foreground">
-              Built for <span className="text-blue-500">meaningful impact</span>
+              Everything you need to <span className="text-blue-500">stay connected</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Every feature designed to foster genuine conversations while maintaining a safe, inclusive environment for all voices.
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              From sharing posts to sliding into DMs — Sociobook.in has all the features you love.
             </p>
           </div>
 
@@ -201,70 +189,53 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Impact Areas */}
-        <section className="max-w-7xl mx-auto px-6 py-20">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-foreground">
-              Conversations that <span className="text-purple-500">matter</span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Engage in discussions about the topics shaping our world - from climate change to governance, 
-              social justice to business ethics.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {impactAreas.map((area) => (
-              <div
-                key={area.label}
-                className="text-center p-6 rounded-2xl bg-card/20 border border-border hover:border-border/80 hover:bg-card/40 transition-all duration-300 group"
-              >
-                <area.icon className={`w-8 h-8 mx-auto mb-3 ${area.color} group-hover:scale-110 transition-transform duration-300`} />
-                <p className="text-sm font-medium text-muted-foreground">{area.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Safety & Trust Section */}
+        {/* Community Section */}
         <section className="max-w-7xl mx-auto px-6 py-20">
           <div className="rounded-3xl bg-gradient-to-r from-card to-card/80 border border-border p-12 lg:p-16">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <div className="inline-flex items-center px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full text-green-600 dark:text-green-400 text-sm font-medium mb-6">
-                  <ShieldCheck className="w-4 h-4 mr-2" />
-                  Safety First
+                <div className="inline-flex items-center px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-600 dark:text-pink-400 text-sm font-medium mb-6">
+                  <Users className="w-4 h-4 mr-2" />
+                  A place for everyone
                 </div>
                 <h2 className="text-4xl font-bold mb-6 text-foreground">
-                  Free speech with <span className="text-green-500">responsibility</span>
+                  Your community, <span className="text-pink-500">your vibe</span>
                 </h2>
                 <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                  We believe in open dialogue and free expression, but draw clear lines against harassment, 
-                  threats, and abuse. Our community thrives because everyone feels safe to share their authentic voice.
+                  Whether you're here to share memes, life updates, opinions, or just keep up with friends — 
+                  Sociobook.in is your space. Be yourself, find your people.
                 </p>
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">
-                    <Lock className="w-5 h-5 text-blue-500" />
-                    <span className="text-muted-foreground">End-to-end encrypted messaging</span>
+                    <Heart className="w-5 h-5 text-pink-500" />
+                    <span className="text-muted-foreground">Like and comment on posts you love</span>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <Eye className="w-5 h-5 text-purple-500" />
-                    <span className="text-muted-foreground">Transparent moderation policies</span>
+                    <Bookmark className="w-5 h-5 text-blue-500" />
+                    <span className="text-muted-foreground">Save posts to revisit anytime</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <ShieldCheck className="w-5 h-5 text-green-500" />
-                    <span className="text-muted-foreground">AI-powered abuse detection</span>
+                    <span className="text-muted-foreground">Safe, moderated community</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Globe className="w-5 h-5 text-purple-500" />
+                    <span className="text-muted-foreground">Connect with people across India and beyond</span>
                   </div>
                 </div>
               </div>
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 dark:from-green-500/20 dark:to-blue-500/20 rounded-3xl blur-3xl"></div>
-                <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-3xl p-8">
-                  <div className="text-center">
-                    <div className="text-6xl font-bold text-green-500 mb-2">0</div>
-                    <div className="text-lg font-semibold text-foreground/80 mb-2">Tolerance Policy</div>
-                    <div className="text-sm text-muted-foreground">For harassment, threats, or abuse</div>
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-blue-500/10 rounded-3xl blur-3xl"></div>
+                <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-3xl p-8 text-center">
+                  <div className="text-6xl mb-4">🎉</div>
+                  <div className="text-2xl font-bold text-foreground mb-2">Join the fun</div>
+                  <div className="text-muted-foreground mb-6">Thousands of people are already sharing, connecting, and having a great time on Sociobook.in</div>
+                  <Link
+                    href="/auth/signin"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-semibold text-white hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    Create your account
+                  </Link>
                 </div>
               </div>
             </div>
@@ -275,16 +246,16 @@ export default function LandingPage() {
         <section className="max-w-7xl mx-auto px-6 py-20">
           <div className="text-center">
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-foreground">
-              Ready to make your <span className="text-blue-500">voice heard</span>?
+              What are you <span className="text-blue-500">waiting for?</span>
             </h2>
-            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Join thousands of people already engaging in meaningful conversations that shape our world.
+            <p className="text-xl text-muted-foreground mb-12 max-w-xl mx-auto">
+              Sign up for free and start sharing your world with Sociobook.in today.
             </p>
             <Link
               href="/auth/signin"
               className="group inline-flex items-center justify-center px-12 py-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-bold text-xl text-white shadow-2xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300"
             >
-              Start your journey
+              Get started — it's free
               <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
@@ -296,14 +267,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <MessageCircle className="w-4 h-4 text-white" />
+              <Smile className="w-4 h-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-foreground">Social Pulse</span>
+            <span className="text-lg font-bold text-foreground">Sociobook.in</span>
           </div>
           <p className="text-muted-foreground text-xs mt-2">
-            Empowering meaningful conversations since 2024
+            Bringing people together, one post at a time.
           </p>
-          <p className="text-muted-foreground text-xs mt-1">Powered by ORINCORE Technologies</p>
+          <p className="text-muted-foreground text-xs mt-1">© 2024 Sociobook.in · Made with ❤️ in India</p>
         </div>
       </footer>
     </div>

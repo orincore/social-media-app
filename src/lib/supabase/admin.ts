@@ -12,7 +12,7 @@ export const adminClient = createClient<Database>(
     },
     global: {
       headers: {
-        'X-Client-Info': 'social-pulse-admin',
+        'X-Client-Info': 'sociobook-admin',
       },
     },
   }

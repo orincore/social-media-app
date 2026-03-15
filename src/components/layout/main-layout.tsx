@@ -79,9 +79,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Button>
           
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-foreground rounded-lg flex items-center justify-center">
-              <X className="w-3.5 h-3.5 text-background" />
-            </div>
+            <span className="text-base font-bold text-foreground tracking-tight">Sociobook.in</span>
           </div>
 
           <Button
@@ -106,9 +104,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           {/* Logo */}
           <div className="flex items-center px-5 py-5 lg:py-5">
             <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 bg-foreground rounded-full flex items-center justify-center">
-                <X className="w-5 h-5 text-background" />
-              </div>
+              <span className="text-xl font-bold text-foreground tracking-tight">Sociobook.in</span>
             </div>
           </div>
 

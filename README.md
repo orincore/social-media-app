@@ -1,4 +1,4 @@
-# Social Media App
+# Sociobook.in
 
 A modern, production-grade social media platform built with Next.js 14, TypeScript, Supabase, and Tailwind CSS. Features Google OAuth authentication, real-time updates, media uploads, and a responsive design.
 
