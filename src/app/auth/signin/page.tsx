@@ -98,7 +98,7 @@ function SignInForm() {
               <Sparkles className="h-3 w-3" /> Trusted access
             </span>
             <div>
-              <p className="text-sm uppercase tracking-[0.45em] text-muted-foreground">Social Pulse</p>
+              <p className="text-sm uppercase tracking-[0.45em] text-muted-foreground">Sociobook</p>
               <h1 className="mt-3 text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
                 Sign in securely to stay close to your community.
               </h1>
@@ -155,7 +155,7 @@ function SignInForm() {
             </p>
           ) : (
             <p className="mt-4 text-xs text-muted-foreground">
-              We never post without permission. Grant Social Pulse read-only access to your Google profile to continue.
+              We never post without permission. Grant Sociobook read-only access to your Google profile to continue.
             </p>
           )}
 

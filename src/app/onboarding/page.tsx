@@ -241,7 +241,7 @@ export default function OnboardingPage() {
               Shape how the world <span className="text-blue-200">sees you</span>.
             </h1>
             <p className="text-sm xl:text-base text-blue-100/90 max-w-md leading-relaxed">
-              Your profile is your identity on Social Pulse. Choose a handle, add context, and help others
+              Your profile is your identity on Sociobook. Choose a handle, add context, and help others
               discover your voice across politics, culture, business, and the issues you care about most.
             </p>
           </div>
