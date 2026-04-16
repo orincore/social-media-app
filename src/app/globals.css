@@ -1,39 +1,48 @@
 @import "tailwindcss";
 
-@layer base {
-  *, *::before, *::after {
-    border-color: rgb(210 210 210);
-    border-width: 0;
-  }
+/* ─── Tailwind v4: configure dark variant to use data-theme="dark" ─── */
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-  [data-theme="dark"] *, [data-theme="dark"] *::before, [data-theme="dark"] *::after {
-    border-color: rgb(55 55 55);
-  }
+/* ─── Tailwind v4: register semantic color utilities from CSS variables ─── */
+@theme inline {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-border: rgb(var(--border));
+  --color-input: rgb(var(--input));
+  --color-ring: rgb(var(--ring));
+  --color-text-primary: rgb(var(--text-primary));
+  --color-text-secondary: rgb(var(--text-secondary));
+  --color-text-tertiary: rgb(var(--text-tertiary));
+  --color-text-quaternary: rgb(var(--text-quaternary));
+  --color-text-disabled: rgb(var(--text-disabled));
 }
 
+/* ─── CSS variable definitions ─── */
 :root {
-  /* default to light theme tokens */
-  --background: 255 255 255;      /* white */
-  --foreground: 0 0 0;            /* black */
-  --card: 255 255 255;            /* white cards */
-  --card-foreground: 0 0 0;       /* black text */
-  --muted: 245 245 245;           /* light gray */
-  --muted-foreground: 90 90 90;   /* dark gray */
-  --accent: 235 235 235;          /* neutral gray accent */
-  --accent-foreground: 0 0 0;     /* black */
-  --border: 210 210 210;          /* light grey border */
-  --input: 210 210 210;           /* light grey input */
-  --ring: 0 0 0;                  /* black focus ring */
-  
-  /* Text hierarchy colors */
-  --text-primary: 0 0 0;          /* Primary text - pure black */
-  --text-secondary: 60 60 60;     /* Secondary text - dark gray */
-  --text-tertiary: 120 120 120;   /* Tertiary text - medium gray */
-  --text-quaternary: 160 160 160; /* Quaternary text - light gray */
-  --text-disabled: 200 200 200;   /* Disabled text - very light gray */
+  --background: 255 255 255;
+  --foreground: 0 0 0;
+  --card: 255 255 255;
+  --card-foreground: 0 0 0;
+  --muted: 245 245 245;
+  --muted-foreground: 90 90 90;
+  --accent: 235 235 235;
+  --accent-foreground: 0 0 0;
+  --border: 210 210 210;
+  --input: 210 210 210;
+  --ring: 0 0 0;
+  --text-primary: 0 0 0;
+  --text-secondary: 60 60 60;
+  --text-tertiary: 120 120 120;
+  --text-quaternary: 160 160 160;
+  --text-disabled: 200 200 200;
 }
 
-/* Light theme: pure black/white with neutral grays only */
 [data-theme="light"] {
   --background: 255 255 255;
   --foreground: 0 0 0;
@@ -46,16 +55,13 @@
   --border: 210 210 210;
   --input: 210 210 210;
   --ring: 0 0 0;
-  
-  /* Light theme text hierarchy */
-  --text-primary: 0 0 0;          /* Primary text - pure black */
-  --text-secondary: 60 60 60;     /* Secondary text - dark gray */
-  --text-tertiary: 120 120 120;   /* Tertiary text - medium gray */
-  --text-quaternary: 160 160 160; /* Quaternary text - light gray */
-  --text-disabled: 200 200 200;   /* Disabled text - very light gray */
+  --text-primary: 0 0 0;
+  --text-secondary: 60 60 60;
+  --text-tertiary: 120 120 120;
+  --text-quaternary: 160 160 160;
+  --text-disabled: 200 200 200;
 }
 
-/* Dark theme: inverted black/white with neutral grays */
 [data-theme="dark"] {
   --background: 0 0 0;
   --foreground: 255 255 255;
@@ -63,39 +69,36 @@
   --card-foreground: 255 255 255;
   --muted: 30 30 30;
   --muted-foreground: 180 180 180;
-  --accent: 20 20 20;
+  --accent: 30 30 30;
   --accent-foreground: 255 255 255;
-  /* Light grey borders on dark backgrounds */
   --border: 55 55 55;
   --input: 55 55 55;
   --ring: 255 255 255;
-  
-  /* Dark theme text hierarchy */
-  --text-primary: 255 255 255;    /* Primary text - pure white */
-  --text-secondary: 200 200 200;  /* Secondary text - light gray */
-  --text-tertiary: 140 140 140;   /* Tertiary text - medium gray */
-  --text-quaternary: 100 100 100; /* Quaternary text - dark gray */
-  --text-disabled: 60 60 60;      /* Disabled text - very dark gray */
+  --text-primary: 255 255 255;
+  --text-secondary: 200 200 200;
+  --text-tertiary: 140 140 140;
+  --text-quaternary: 100 100 100;
+  --text-disabled: 60 60 60;
 }
 
-html {
-  background-color: rgb(var(--background));
-  color: rgb(var(--foreground));
+@layer base {
+  *, *::before, *::after {
+    border-color: rgb(var(--border));
+    border-width: 0;
+  }
 }
 
-body {
+html, body {
   background-color: rgb(var(--background));
   color: rgb(var(--foreground));
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-feature-settings: 'rlig' 1, 'calt' 1;
 }
 
-/* Smooth scrolling */
 * {
   scroll-behavior: smooth;
 }
 
-/* Enhanced focus styles */
 *:focus-visible {
   outline: 2px solid rgb(var(--ring));
   outline-offset: 2px;

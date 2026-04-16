@@ -63,31 +63,31 @@ export function NewMessageModal({ isOpen, onClose, onStartChat }: NewMessageModa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md mx-4 bg-slate-950 rounded-3xl border border-slate-800/70 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md mx-4 bg-background rounded-3xl border border-border overflow-hidden shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-800/70">
-          <h2 className="text-lg font-semibold text-white">New message</h2>
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">New message</h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 rounded-full text-slate-400 hover:text-white hover:bg-slate-800"
+            className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-slate-800/70">
+        <div className="p-4 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search people"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-900/70 border border-slate-800/70 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
             />
           </div>
         </div>
@@ -96,7 +96,7 @@ export function NewMessageModal({ isOpen, onClose, onStartChat }: NewMessageModa
         <div className="max-h-80 overflow-y-auto">
           {isSearching ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-ring"></div>
             </div>
           ) : searchResults.length > 0 ? (
             <div className="space-y-1 p-2">
@@ -104,7 +104,7 @@ export function NewMessageModal({ isOpen, onClose, onStartChat }: NewMessageModa
                 <button
                   key={user.id}
                   onClick={() => handleStartChat(user.id)}
-                  className="w-full flex items-center space-x-3 p-3 rounded-2xl hover:bg-slate-800/50 transition-colors text-left"
+                  className="w-full flex items-center space-x-3 p-3 rounded-2xl hover:bg-accent transition-colors text-left"
                 >
                   <div className="relative">
                     {user.avatar_url ? (
@@ -123,23 +123,23 @@ export function NewMessageModal({ isOpen, onClose, onStartChat }: NewMessageModa
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate">{user.display_name}</p>
-                    <p className="text-sm text-slate-400 truncate">@{user.username}</p>
+                    <p className="font-semibold text-foreground truncate">{user.display_name}</p>
+                    <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
                   </div>
                 </button>
               ))}
             </div>
           ) : searchQuery.length >= 2 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Search className="h-8 w-8 text-slate-600 mb-2" />
-              <p className="text-slate-400">No users found</p>
-              <p className="text-sm text-slate-500">Try searching for a different name</p>
+              <Search className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">No users found</p>
+              <p className="text-sm text-muted-foreground/70">Try searching for a different name</p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Search className="h-8 w-8 text-slate-600 mb-2" />
-              <p className="text-slate-400">Search for people</p>
-              <p className="text-sm text-slate-500">Start typing to find someone to message</p>
+              <Search className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">Search for people</p>
+              <p className="text-sm text-muted-foreground/70">Start typing to find someone to message</p>
             </div>
           )}
         </div>

@@ -513,7 +513,7 @@ function UserProfileContent() {
 
   return (
     <div className="min-h-screen w-full pb-12 bg-background">
-      <div className="mx-auto mt-4 flex w-full max-w-[1100px] flex-col gap-6 px-3 sm:mt-6 sm:px-6 lg:mt-8 lg:px-8">
+      <div className="mx-auto mt-0 flex w-full max-w-[1100px] flex-col gap-3 px-3 pt-2 sm:gap-6 sm:mt-6 sm:pt-0 sm:px-6 sm:mx-0 lg:mt-8 lg:px-8">
         {/* Header bar */}
         <div className="flex items-center gap-3 pb-2">
           <Button

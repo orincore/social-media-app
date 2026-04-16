@@ -99,7 +99,7 @@ export default function LandingPage() {
             </button>
             <Link
               href="/auth/signin"
-              className="px-6 py-2 bg-foreground/10 backdrop-blur-sm border border-border rounded-full hover:bg-foreground/20 transition-all duration-300 text-foreground"
+              className="px-6 py-2 bg-muted border border-border rounded-full hover:bg-accent transition-all duration-300 text-foreground"
             >
               Sign In
             </Link>
@@ -109,7 +109,7 @@ export default function LandingPage() {
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 lg:py-32">
           <div className="text-center space-y-8">
-            <div className="inline-flex items-center px-4 py-2 bg-foreground/5 backdrop-blur-sm border border-border rounded-full text-sm font-medium text-foreground">
+            <div className="inline-flex items-center px-4 py-2 bg-muted border border-border rounded-full text-sm font-medium text-foreground">
               <Heart className="w-4 h-4 mr-2 text-pink-500" />
               Your social world, all in one place
             </div>
@@ -149,7 +149,7 @@ export default function LandingPage() {
             {stats.map((stat, index) => (
               <div
                 key={stat.label}
-                className="text-center p-6 rounded-2xl bg-card/50 backdrop-blur-sm border border-border hover:bg-card/80 transition-all duration-300"
+                className="text-center p-6 rounded-2xl bg-card border border-border hover:bg-accent transition-all duration-300"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="text-3xl lg:text-4xl font-bold text-foreground mb-2">{stat.value}</div>
@@ -177,7 +177,7 @@ export default function LandingPage() {
             {coreFeatures.map((feature) => (
               <div
                 key={feature.title}
-                className="group p-8 rounded-3xl bg-card/30 border border-border hover:border-border/80 backdrop-blur-sm hover:bg-card/50 transition-all duration-300"
+                className="group p-8 rounded-3xl bg-card border border-border hover:border-border hover:bg-accent transition-all duration-300"
               >
                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                   <feature.icon className="w-7 h-7 text-white" />
@@ -226,7 +226,7 @@ export default function LandingPage() {
               </div>
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-blue-500/10 rounded-3xl blur-3xl"></div>
-                <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-3xl p-8 text-center">
+                <div className="relative bg-card border border-border rounded-3xl p-8 text-center">
                   <div className="text-6xl mb-4">🎉</div>
                   <div className="text-2xl font-bold text-foreground mb-2">Join the fun</div>
                   <div className="text-muted-foreground mb-6">Thousands of people are already sharing, connecting, and having a great time on Sociobook.in</div>

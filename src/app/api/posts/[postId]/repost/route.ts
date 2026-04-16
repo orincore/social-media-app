@@ -49,8 +49,8 @@ export async function POST(
       );
     }
 
-    // Create repost
-    const { data: repost, error: repostError } = await supabase
+    // Create repost using adminClient to bypass RLS
+    const { data: repost, error: repostError } = await adminClient
       .from('posts')
       .insert({
         user_id: session.user.id,
@@ -80,15 +80,15 @@ export async function POST(
       );
     }
 
-    // Increment reposts count on original post
-    const { data: post } = await supabase
+    // Increment reposts count on original post using adminClient
+    const { data: post } = await adminClient
       .from('posts')
       .select('reposts_count, user_id')
       .eq('id', postId)
       .single();
 
     if (post) {
-      await supabase
+      await adminClient
         .from('posts')
         .update({ reposts_count: post.reposts_count + 1 })
         .eq('id', postId);
@@ -151,8 +151,8 @@ export async function DELETE(
     const { postId } = await params;
     const supabase = await createClient();
 
-    // Find and delete the repost
-    const { error: deleteError } = await supabase
+    // Find and delete the repost using adminClient
+    const { error: deleteError } = await adminClient
       .from('posts')
       .delete()
       .eq('user_id', session.user.id)
@@ -166,15 +166,15 @@ export async function DELETE(
       );
     }
 
-    // Decrement reposts count on original post
-    const { data: post } = await supabase
+    // Decrement reposts count on original post using adminClient
+    const { data: post } = await adminClient
       .from('posts')
       .select('reposts_count')
       .eq('id', postId)
       .single();
 
     if (post && post.reposts_count > 0) {
-      await supabase
+      await adminClient
         .from('posts')
         .update({ reposts_count: post.reposts_count - 1 })
         .eq('id', postId);

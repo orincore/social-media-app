@@ -330,7 +330,7 @@ export async function POST(
       commentData.reply_to_id = replyToId;
     }
 
-    const { data: comment, error: commentError } = await supabase
+    const { data: comment, error: commentError } = await adminClient
       .from('comments')
       .insert(commentData)
       .select(`
@@ -353,15 +353,15 @@ export async function POST(
       );
     }
 
-    // Increment replies count on post
-    const { data: post } = await supabase
+    // Increment replies count on post using adminClient
+    const { data: post } = await adminClient
       .from('posts')
       .select('replies_count, user_id')
       .eq('id', postId)
       .single();
 
     if (post) {
-      await supabase
+      await adminClient
         .from('posts')
         .update({ replies_count: post.replies_count + 1 })
         .eq('id', postId);
@@ -399,14 +399,14 @@ export async function POST(
 
     // If this is a reply to another comment, increment that comment's replies_count
     if (replyToId) {
-      const { data: parentComment } = await supabase
+      const { data: parentComment } = await adminClient
         .from('comments')
         .select('replies_count, user_id')
         .eq('id', replyToId)
         .single();
 
       if (parentComment) {
-        await supabase
+        await adminClient
           .from('comments')
           .update({ replies_count: parentComment.replies_count + 1 })
           .eq('id', replyToId);

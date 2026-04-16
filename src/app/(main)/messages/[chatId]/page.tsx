@@ -67,7 +67,11 @@ function ChatContent() {
       if (response.ok) {
         const data = await response.json();
         if (append) {
-          setMessages(prev => [...data.messages, ...prev]);
+          setMessages(prev => {
+            const ids = new Set(prev.map((m) => m.id));
+            const fresh = (data.messages as Message[]).filter((m) => !ids.has(m.id));
+            return [...fresh, ...prev];
+          });
         } else {
           setMessages(data.messages || []);
         }
@@ -94,7 +98,11 @@ function ChatContent() {
       
       if (response.ok) {
         const data = await response.json();
-        setMessages(prev => [...prev, data.message]);
+        setMessages(prev => {
+          const ids = new Set(prev.map((m) => m.id));
+          if (ids.has(data.message.id)) return prev;
+          return [...prev, data.message];
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -149,11 +157,16 @@ function ChatContent() {
         const data = JSON.parse(event.data);
         
         if (data.type === 'new_messages') {
-          const newMessages = data.messages.filter((msg: Message) => 
-            msg.chat_id === chatId && msg.sender_id !== session.user!.id
+          const incoming = data.messages.filter((msg: Message) =>
+            msg.chat_id === chatId
           );
-          if (newMessages.length > 0) {
-            setMessages(prev => [...prev, ...newMessages]);
+          if (incoming.length > 0) {
+            setMessages(prev => {
+              const ids = new Set(prev.map((m) => m.id));
+              const fresh = incoming.filter((msg: Message) => !ids.has(msg.id));
+              if (fresh.length === 0) return prev;
+              return [...prev, ...fresh];
+            });
           }
         }
       } catch (error) {

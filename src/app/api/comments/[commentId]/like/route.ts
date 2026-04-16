@@ -35,8 +35,8 @@ export async function POST(
       return NextResponse.json({ liked: true, alreadyLiked: true });
     }
 
-    // Create like
-    const { error: likeError } = await supabase
+    // Create like using adminClient to bypass RLS
+    const { error: likeError } = await adminClient
       .from('likes')
       .insert({
         user_id: session.user.id,
@@ -51,15 +51,15 @@ export async function POST(
       );
     }
 
-    // Increment likes count on comment and get comment details
-    const { data: comment } = await supabase
+    // Increment likes count on comment using adminClient
+    const { data: comment } = await adminClient
       .from('comments')
       .select('likes_count, user_id, post_id')
       .eq('id', commentId)
       .single();
 
     if (comment) {
-      await supabase
+      await adminClient
         .from('comments')
         .update({ likes_count: comment.likes_count + 1 })
         .eq('id', commentId);
@@ -123,8 +123,8 @@ export async function DELETE(
     const { commentId } = await params;
     const supabase = await createClient();
 
-    // Delete like
-    const { error: deleteError } = await supabase
+    // Delete like using adminClient to bypass RLS
+    const { error: deleteError } = await adminClient
       .from('likes')
       .delete()
       .eq('user_id', session.user.id)
@@ -138,15 +138,15 @@ export async function DELETE(
       );
     }
 
-    // Decrement likes count on comment
-    const { data: comment } = await supabase
+    // Decrement likes count on comment using adminClient
+    const { data: comment } = await adminClient
       .from('comments')
       .select('likes_count')
       .eq('id', commentId)
       .single();
 
     if (comment && comment.likes_count > 0) {
-      await supabase
+      await adminClient
         .from('comments')
         .update({ likes_count: comment.likes_count - 1 })
         .eq('id', commentId);

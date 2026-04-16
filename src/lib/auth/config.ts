@@ -71,7 +71,8 @@ export const authOptions: NextAuthOptions = {
             // Users will set their real username during onboarding
             const tempUsername = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
             
-            const payload: TablesInsert<'users'> = {
+            const payload: TablesInsert<'users'> & { id: string } = {
+              id: crypto.randomUUID(), // Generate UUID for NextAuth user
               email: user.email!,
               username: tempUsername, // Temporary unique username, set properly during onboarding
               display_name: user.name || '',

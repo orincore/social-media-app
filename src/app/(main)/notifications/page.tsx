@@ -73,32 +73,11 @@ function NotificationsContent() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [markingAsRead, setMarkingAsRead] = useState(false);
 
-  // Fetch notifications
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (activeFilter === 'Unread') {
-        params.set('unread', 'true');
-      }
-      
-      const response = await fetch(`/api/notifications?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeFilter]);
-
-  // Mark all as read
-  const markAllAsRead = async () => {
+  // Mark all as read - defined before fetchNotifications
+  const markAllAsRead = useCallback(async (silent = false) => {
     if (unreadCount === 0) return;
     
-    setMarkingAsRead(true);
+    if (!silent) setMarkingAsRead(true);
     try {
       const response = await fetch('/api/notifications/read', {
         method: 'PUT',
@@ -115,12 +94,38 @@ function NotificationsContent() {
     } catch (error) {
       console.error('Error marking notifications as read:', error);
     } finally {
-      setMarkingAsRead(false);
+      if (!silent) setMarkingAsRead(false);
     }
-  };
+  }, [unreadCount, notifications, decrementUnreadCount]);
+
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (activeFilter === 'Unread') {
+        params.set('unread', 'true');
+      }
+      
+      const response = await fetch(`/api/notifications?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+        
+        // Auto-mark all as read when viewing notifications page (silent mode)
+        if (data.unreadCount > 0 && activeFilter !== 'Unread') {
+          markAllAsRead(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFilter, markAllAsRead]);
 
   // Handle notification click
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
     // Mark as read if unread
     if (!notification.is_read) {
       try {
@@ -146,7 +151,7 @@ function NotificationsContent() {
     } else if (notification.type === 'follow') {
       router.push(`/${notification.actor.username}`);
     }
-  };
+  }, [decrementUnreadCount, router]);
 
   // Format time
   const formatTime = (dateString: string) => {
@@ -196,7 +201,7 @@ function NotificationsContent() {
     <div className="min-h-screen w-full pb-12 bg-background">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="sticky top-0 z-10 bg-background border-b border-border">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center space-x-3">
               <BellRing className="h-6 w-6 text-blue-500" />
@@ -214,7 +219,7 @@ function NotificationsContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={markAllAsRead}
+                  onClick={() => markAllAsRead(false)}
                   disabled={markingAsRead}
                   className="text-sm"
                 >

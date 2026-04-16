@@ -35,8 +35,8 @@ export async function POST(
       return NextResponse.json({ liked: true, alreadyLiked: true });
     }
 
-    // Create like
-    const { error: likeError } = await supabase
+    // Create like using adminClient to bypass RLS (NextAuth.js doesn't set auth.uid())
+    const { error: likeError } = await adminClient
       .from('likes')
       .insert({
         user_id: session.user.id,
@@ -51,15 +51,15 @@ export async function POST(
       );
     }
 
-    // Increment likes count on post
-    const { data: post } = await supabase
+    // Increment likes count on post using adminClient to bypass RLS
+    const { data: post } = await adminClient
       .from('posts')
       .select('likes_count, user_id')
       .eq('id', postId)
       .single();
 
     if (post) {
-      await supabase
+      await adminClient
         .from('posts')
         .update({ likes_count: post.likes_count + 1 })
         .eq('id', postId);
@@ -122,8 +122,8 @@ export async function DELETE(
     const { postId } = await params;
     const supabase = await createClient();
 
-    // Delete like
-    const { error: deleteError } = await supabase
+    // Delete like using adminClient to bypass RLS
+    const { error: deleteError } = await adminClient
       .from('likes')
       .delete()
       .eq('user_id', session.user.id)
@@ -137,15 +137,15 @@ export async function DELETE(
       );
     }
 
-    // Decrement likes count on post
-    const { data: post } = await supabase
+    // Decrement likes count on post using adminClient
+    const { data: post } = await adminClient
       .from('posts')
       .select('likes_count')
       .eq('id', postId)
       .single();
 
     if (post && post.likes_count > 0) {
-      await supabase
+      await adminClient
         .from('posts')
         .update({ likes_count: post.likes_count - 1 })
         .eq('id', postId);

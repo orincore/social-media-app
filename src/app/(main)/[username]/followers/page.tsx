@@ -137,7 +137,7 @@ export default function FollowersPage() {
 
   return (
     <div className="min-h-screen w-full pb-12 bg-background">
-      <div className="mx-auto mt-4 flex w-full max-w-[600px] flex-col gap-4 px-3 sm:mt-6 sm:px-6 lg:mt-8 lg:px-8">
+      <div className="mx-auto mt-0 flex w-full max-w-[600px] flex-col gap-2 px-3 pt-2 sm:gap-4 sm:mt-6 sm:pt-0 sm:px-6 lg:mt-8 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-3 pb-2">
           <Button

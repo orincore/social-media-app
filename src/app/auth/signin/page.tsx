@@ -87,8 +87,7 @@ function SignInForm() {
       </div>
 
       <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_55%)]" />
-        <div className="absolute inset-y-0 left-1/2 w-[60%] -translate-x-1/2 bg-[radial-gradient(circle,_rgba(147,51,234,0.12),_transparent_60%)] dark:bg-[radial-gradient(circle,_rgba(147,51,234,0.18),_transparent_60%)] blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent dark:from-blue-500/10" />
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-16 lg:flex-row lg:items-center">
@@ -110,7 +109,7 @@ function SignInForm() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {highlights.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-border bg-card/50 p-4 backdrop-blur">
+              <div key={item.title} className="rounded-2xl border border-border bg-card p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   {item.title}
@@ -120,7 +119,7 @@ function SignInForm() {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-border bg-card/50 p-4 text-sm text-muted-foreground backdrop-blur">
+          <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> TLS 1.3 enforced
             </div>
@@ -133,7 +132,7 @@ function SignInForm() {
           </div>
         </div>
 
-        <div className="w-full max-w-md rounded-3xl border border-border bg-card/80 p-8 shadow-[0_35px_120px_rgba(0,0,0,0.05)] dark:shadow-[0_35px_120px_rgba(15,23,42,0.65)] backdrop-blur">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-[0_35px_120px_rgba(0,0,0,0.05)] dark:shadow-[0_35px_120px_rgba(15,23,42,0.65)]">
           <div className="space-y-4 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600 dark:text-blue-400">Welcome back</p>
             <h2 className="text-2xl font-semibold text-foreground">Secure sign in</h2>

@@ -30,12 +30,12 @@ export function NotificationBadge({ count, className = '' }: NotificationBadgePr
   return (
     <span 
       className={`
-        absolute -top-2 -right-2 
+        absolute -top-1 -right-1 
         bg-red-500 
-        text-white text-xs rounded-full 
-        min-w-[18px] h-[18px] px-1 
+        text-white text-[10px] rounded-full 
+        min-w-[16px] h-[16px] px-1 
         flex items-center justify-center 
-        font-bold 
+        font-bold border-2 border-background
         transition-all duration-300 ease-out
         ${isAnimating ? 'animate-bounce scale-110' : ''}
         ${className}

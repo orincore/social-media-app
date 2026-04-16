@@ -6,8 +6,6 @@ import { redirect, useRouter } from 'next/navigation';
 import { CreatePost } from '@/components/post/create-post';
 import { Feed } from '@/components/feed/feed';
 import { RightSidebar } from '@/components/sidebar/right-sidebar';
-import { Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 function HomeContent() {
   const { data: session, status } = useSession();
@@ -84,11 +82,6 @@ function HomeContent() {
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-14 h-1 bg-blue-500 rounded-full" />
               )}
             </button>
-            <div className="flex items-center px-4">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
         </div>
 

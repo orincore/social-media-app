@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { createClient } from '@/lib/supabase/server';
+import { adminClient } from '@/lib/supabase/admin';
 
 // POST - Bookmark a post
 export async function POST(
@@ -34,8 +35,8 @@ export async function POST(
       return NextResponse.json({ bookmarked: true, alreadyBookmarked: true });
     }
 
-    // Create bookmark
-    const { error: bookmarkError } = await supabase
+    // Create bookmark using adminClient to bypass RLS
+    const { error: bookmarkError } = await adminClient
       .from('bookmarks')
       .insert({
         user_id: session.user.id,
@@ -78,8 +79,8 @@ export async function DELETE(
     const { postId } = await params;
     const supabase = await createClient();
 
-    // Delete bookmark
-    const { error: deleteError } = await supabase
+    // Delete bookmark using adminClient to bypass RLS
+    const { error: deleteError } = await adminClient
       .from('bookmarks')
       .delete()
       .eq('user_id', session.user.id)

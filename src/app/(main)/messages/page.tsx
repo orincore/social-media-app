@@ -42,16 +42,13 @@ function MessagesContent() {
     router.push(`/messages/${id}`);
   }, [router]);
 
-  // Start new chat
-  const startNewChat = useCallback(async (recipientId: string, initialMessage?: string) => {
+  // Start new chat (find existing or create one, without sending any initial message)
+  const startNewChat = useCallback(async (recipientId: string) => {
     try {
-      const response = await fetch('/api/messages', {
+      const response = await fetch('/api/messages/find-or-create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          recipient_id: recipientId, 
-          content: initialMessage || 'Hi!' 
-        })
+        body: JSON.stringify({ recipient_id: recipientId })
       });
       
       if (response.ok) {

@@ -25,7 +25,7 @@ const notifications = [
 
 function SettingsContent() {
   const { status, data: session } = useSession();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { preferences: notificationPrefs, togglePreference } = useNotificationSettings();
   const { settings: privacySettings, toggleSetting } = usePrivacySettings();
   const { settings: appearanceSettings, updateSettings: updateAppearance } = useAppearanceSettings();
@@ -43,7 +43,7 @@ function SettingsContent() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-background pb-12 pt-16 lg:pt-0 mt-5 text-foreground">
+    <div className="min-h-screen w-full bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-3 pb-1">
@@ -149,17 +149,17 @@ function SettingsContent() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">Switch between light and dark themes.</p>
               <div className="mt-4 space-y-3">
-                <div className="text-xs text-muted-foreground mb-2">Current theme: <span className="capitalize font-medium text-foreground">{appearanceSettings?.theme || theme}</span></div>
+                <div className="text-xs text-muted-foreground mb-2">Current theme: <span className="capitalize font-medium text-foreground">{theme}</span></div>
                 <Button
                   className="w-full rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-sm font-semibold text-white"
                   type="button"
                   onClick={async () => {
-                    const newTheme = theme === 'dark' ? 'light' : 'dark';
+                    const newTheme = (theme === 'dark' || theme === 'system') ? 'light' : 'dark';
+                    setTheme(newTheme);
                     await updateAppearance({ theme: newTheme });
-                    toggleTheme();
                   }}
                 >
-                  {(appearanceSettings?.theme || theme) === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  {(theme === 'dark' || theme === 'system') ? 'Switch to light mode' : 'Switch to dark mode'}
                 </Button>
               </div>
             </div>

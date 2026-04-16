@@ -120,14 +120,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Recipient ID is required for new chats' }, { status: 400 });
       }
 
-      // Check if chat already exists between these users
+      // Check if chat already exists between these exact two users
       const participants = [session.user.id, recipient_id].sort();
-      const { data: existingChat } = await adminClient
+      const { data: candidateChats } = await adminClient
         .from('chats')
-        .select('id')
-        .contains('participants', participants)
-        .eq('participants', participants)
-        .single();
+        .select('id, participants')
+        .contains('participants', participants);
+
+      const existingChat = (candidateChats || []).find((c: { id: string; participants: string[] }) => {
+        const sorted = [...c.participants].sort();
+        return sorted.length === participants.length && sorted.every((p, i) => p === participants[i]);
+      });
 
       if (existingChat) {
         chatId = existingChat.id;

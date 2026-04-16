@@ -105,14 +105,14 @@ export function ReportModal({ isOpen, onClose, targetType, targetId, targetName 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80"
         onClick={handleClose}
       />
       
       {/* Modal card */}
       <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-900 rounded-2xl border border-border shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-white/95 dark:bg-gray-900/95">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-white dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             <h2 className="text-lg font-semibold text-foreground">Report {getTargetLabel()}</h2>
