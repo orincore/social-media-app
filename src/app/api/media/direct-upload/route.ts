@@ -5,16 +5,10 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getR2Client, R2_BUCKET_NAME, isR2Available } from '@/lib/r2/client';
 import { nanoid } from 'nanoid';
 
-// Increase body size limit for file uploads
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// For Next.js App Router, we need to set the runtime and size limits
+// Route configuration for file uploads
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds timeout
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
