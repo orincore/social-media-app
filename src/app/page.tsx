@@ -1,6 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowRight, 
   ShieldCheck, 
@@ -67,7 +70,30 @@ const stats = [
 
 export default function LandingPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const ThemeIcon = theme === 'system' ? Monitor : resolvedTheme === 'dark' ? Moon : Sun;
+
+  // Redirect logged-in users to home feed
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace('/home');
+    }
+  }, [status, session, router]);
+
+  // Show loading while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+      </div>
+    );
+  }
+
+  // Don't render landing page if authenticated (will redirect)
+  if (status === 'authenticated') {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden transition-colors duration-300">

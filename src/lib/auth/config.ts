@@ -3,21 +3,17 @@ import GoogleProvider from 'next-auth/providers/google';
 import { adminClient } from '@/lib/supabase/admin';
 import type { Tables, TablesInsert } from '@/lib/supabase/types';
 
-// Validate required environment variables at startup
-const requiredEnvVars = {
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-};
+// Ensure stable secret - fallback only for development (will invalidate existing sessions)
+const stableSecret = process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV === 'development' 
+  ? 'dev-secret-do-not-use-in-production-32charsmin' 
+  : undefined);
 
-// Log missing variables (but don't throw - let NextAuth handle it)
-const missingVars = Object.entries(requiredEnvVars)
-  .filter(([, value]) => !value)
-  .map(([key]) => key);
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('NEXTAUTH_SECRET is required in production');
+}
 
-if (missingVars.length > 0) {
-  console.error('[NextAuth] Missing required environment variables:', missingVars.join(', '));
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn('[NextAuth] NEXTAUTH_SECRET not set - sessions will not persist across restarts');
 }
 
 export const authOptions: NextAuthOptions = {
@@ -227,6 +223,8 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60,    // Update session every 24 hours
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: stableSecret,
 };

@@ -120,8 +120,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </button>
 
             <div className="flex items-center space-x-2">
-              <Link href="/home">
-                <span className="text-base font-bold text-foreground tracking-tight">Sociobook.in</span>
+              <Link href="/home" className="text-base font-bold text-foreground tracking-tight">
+                Sociobook.in
               </Link>
             </div>
 

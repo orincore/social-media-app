@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Lock, ShieldCheck, Sparkles, Sun, Moon, Monitor } from 'lucide-react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
@@ -42,29 +42,33 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { data: session, status } = useSession();
   const callbackUrl = searchParams.get('callbackUrl') || '/home';
   const error = searchParams.get('error');
   const ThemeIcon = theme === 'system' ? Monitor : resolvedTheme === 'dark' ? Moon : Sun;
 
+  // Redirect logged-in users to home
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace('/home');
+    }
+  }, [status, session, router]);
+
+  // Show loading while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+      </div>
+    );
+  }
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      const result = await signIn('google', {
-        callbackUrl,
-        redirect: false,
-      });
-
-      if (result?.ok) {
-        const session = await getSession();
-        if (session?.user) {
-          router.push(callbackUrl);
-        }
-      } else {
-        console.error('Sign in failed:', result?.error);
-      }
+      await signIn('google', { callbackUrl, redirect: true });
     } catch (error) {
       console.error('Sign in error:', error);
-    } finally {
       setIsLoading(false);
     }
   };
